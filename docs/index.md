@@ -1,7 +1,12 @@
 # Intro
-This project contains code for running bscr returns:
+This repo contains documentation for completing UKEU retail rollup aggregates and
+regulatory returns.
+
 - Aggs for BSCR
 - Aggs from EDM script
+- Aggs for PRA return
+- Global exposures
+- Contingency RDS
 
 ## IMPORTANT
 The aggs from EDM script was coded up in a rush and was measured against
@@ -16,6 +21,6 @@ what the bscr needs:
 
 
 ## Amending the bscr output
-Main real world problem in the script is hardcoding the group by columns 
-this occurs in several places after df3 has been created. 
+Main real world problem in the script is hardcoding the group by columns
+this occurs in several places after df3 has been created.
 
