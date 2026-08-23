@@ -14,11 +14,10 @@ __marimo__/**
 __marimo__**
 
 *.json
-*.csv
 *.sqlite
 
 
 *.json
 *.csv
 *.sqlite
-*.xlsx
+
