@@ -36,5 +36,5 @@ calculate this.
 ## Procedure
 The step by step procedure to re-run this analysis is
 in a runbook stored locally here:
-[BSCR Runbook]('./bscr-runbook.md')
+[BSCR Runbook](bscr-runbook.md)
 
