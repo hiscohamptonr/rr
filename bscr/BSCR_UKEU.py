@@ -1,427 +1,315 @@
-# This workbook connects to an xlsx file to generate the output for BSCR
-# I left the sql query in the sql cell in cell 2 but the actualprocess
-# just used an xlsx file that contaiend the same data
+"""Produce BSCR aggregate outputs from Microsoft SQL Server.
 
-import marimo
+External data sources: the configured SQL Server database's ``loccvg``, ``loc``,
+``policy``, and ``accgrp`` tables.
+"""
 
-__generated_with = "0.21.1"
-app = marimo.App(width="full")
+import argparse
+from collections.abc import Iterable, Sequence
+from pathlib import Path
+from urllib.parse import quote_plus
+
+import polars as pl
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
+from tabulate import tabulate
+
+DEFAULT_SERVER = r"pr0503-14002-00\LMRMSINSURANCE"
+DEFAULT_DATABASE = "HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM"
+DEFAULT_ENCRYPT = "yes"
+DEFAULT_TRUST_SERVER_CERTIFICATE = "yes"
+DEFAULT_OUTPUT = Path("output.csv")
+CONNECTION_TIMEOUT_SECONDS = 30
+
+LOB_COLUMN = "userid1"
+BSCR_ENTITIES = ("HIG", "HSA", "33", "3624", "HIC")
+QS_PCT_RETENTION = 0.5
+SRP_PCT_RETENTION = 0.3333
+SOURCE_COLUMNS = [
+    "pml",
+    "accgrpid",
+    "uwritrname",
+    "state",
+    "userid1",
+    "cntrycode",
+    "is_geocoded",
+]
+
+QUERY = """
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    _df = mo.sql(
-        f"""
+with loc_tiv as (
+	select
+		locid,
+		peril,
+		deductamt,
+		deductcur,
+		sum(valueamt) valueamt
 
-        """
-    )
-    return
+	from loccvg
+	where peril = 1
+	group by
+		locid,
+		peril,
+		deductamt,
+		deductcur,
+		limitamt,
+		limitcur
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # Producing BSCR Agg outputs for Retail
-    1. Run the SQL Query in cell 1 tests connection
-    2. Query to select exposure in cell 2
-    3. Loads this to polars -> creates functions to split out region perils
-    4. sum and group by
-    5. DOES NOT DO Currency conversion, do this after
-    """)
-    return
+	)
 
 
-@app.cell
-def _():
-    from sqlalchemy import create_engine, text
-    import polars as pl
-    from urllib.parse import quote_plus
-    import pyodbc
 
-    # -------------------------
-    # CONFIG (edit me)
-    # -------------------------
-    SERVER = r"pr0503-14002-00\LMRMSINSURANCE"
-    DATABASE = "HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM"
+, gross_loctiv as (
 
-    # SSL behaviour (ODBC Driver 18 encrypts by default)
-    ENCRYPT = "yes"  # "yes" recommended
-    TRUST_SERVER_CERT = "yes"  # set to "no" if cert name matches (production ideal)
 
-    ODBC_CONNECTION_STRING = (
+	select
+		case when valueamt < deductamt then 0
+		else valueamt
+		end as pml,
+		*
+
+		from loc_tiv
+
+)
+
+
+, selected_locs as (
+
+select  locid, accgrpid, locnum,
+case when addrmatch = 0 then 0 else 1 end as is_geocoded,
+case when cntrycode = 'US' then state else '' end as state,
+cntrycode, country
+from loc
+
+	)
+
+
+, loc_exposure as (
+
+	select
+
+	sum(gross_loctiv.pml) as pml,
+	selected_locs.accgrpid,
+	state, cntrycode, country,
+	is_geocoded
+	from gross_loctiv
+	inner join selected_locs on selected_locs.locid = gross_loctiv.locid
+	group by accgrpid, state, cntrycode, country, is_geocoded
+
+	)
+
+
+, policies as (
+
+	select distinct policy.accgrpid, policyid, partof,
+	case when blanlimamt = 0 then 0 else partof end as policy_limit,
+	undcovamt, blandedamt, accgrp.userid1, accgrp.branchname, accgrp.UWritrname, is_geocoded
+	from policy
+	inner join accgrp on accgrp.accgrpid = policy.accgrpid
+	inner join  loc_exposure on loc_exposure.accgrpid = accgrp.accgrpid and loc_exposure.accgrpid = policy.accgrpid
+	where policy.policytype = 1
+
+	)
+
+
+
+, policy_exposure as (
+
+		select
+			case when sum(pml) > policy_limit then policy_limit else sum(pml) end as pml,
+			policies.accgrpid,
+			uwritrname,
+			state,
+			userid1,
+			branchname,
+			cntrycode,
+			policies.is_geocoded
+	from loc_exposure
+	inner join policies on policies.accgrpid = loc_exposure.accgrpid
+	group by
+			policies.accgrpid,
+			uwritrname,
+			state,
+			userid1,
+			branchname,
+			cntrycode,
+			policies.is_geocoded,
+			policy_limit
+
+	)
+
+
+
+
+select sum(pml) as pml, accgrpid, state,userid1,cntrycode,uwritrname,is_geocoded from policy_exposure
+group by state,cntrycode,userid1,uwritrname,is_geocoded, accgrpid
+order by sum(pml) desc
+
+"""
+
+
+def build_engine(
+    server: str = DEFAULT_SERVER,
+    database: str = DEFAULT_DATABASE,
+    encrypt: str = DEFAULT_ENCRYPT,
+    trust_server_certificate: str = DEFAULT_TRUST_SERVER_CERTIFICATE,
+) -> Engine:
+    """Create the SQLAlchemy engine without opening a connection."""
+    odbc_connection_string = (
         "Driver={ODBC Driver 18 for SQL Server};"
-        f"Server={SERVER};"
-        f"Database={DATABASE};"
+        f"Server={server};"
+        f"Database={database};"
         "Trusted_Connection=yes;"
-        f"Encrypt={ENCRYPT};"
-        f"TrustServerCertificate={TRUST_SERVER_CERT};"
-        "Connection Timeout=30;"
+        f"Encrypt={encrypt};"
+        f"TrustServerCertificate={trust_server_certificate};"
+        f"Connection Timeout={CONNECTION_TIMEOUT_SECONDS};"
     )
-
-    # SQLAlchemy engine
-    engine = create_engine(
-        "mssql+pyodbc:///?odbc_connect=" + quote_plus(ODBC_CONNECTION_STRING),
+    return create_engine(
+        "mssql+pyodbc:///?odbc_connect=" + quote_plus(odbc_connection_string),
         fast_executemany=True,
-        pool_pre_ping=True,  # helps with stale connections
+        pool_pre_ping=True,
     )
 
-    with engine.connect() as conn:
-        result = conn.execute(text("SELECT 1 AS ok")).scalar()
+
+def check_connection(engine: Engine) -> None:
+    """Verify that SQL Server accepts a connection before running the query."""
+    with engine.connect() as connection:
+        result = connection.execute(text("SELECT 1 AS ok")).scalar()
     assert result == 1
-    return engine, pl
 
 
-@app.cell
-def _():
-
-    query = """
-
-
-    with loc_tiv as (
-    	select
-    		locid,
-    		peril,
-    		deductamt,
-    		deductcur,
-    		sum(valueamt) valueamt
-
-    	from loccvg
-    	where peril = 1
-    	group by
-    		locid,
-    		peril,
-    		deductamt,
-    		deductcur,
-    		limitamt,
-    		limitcur
-
-    	)
+def load_exposure(engine: Engine) -> pl.DataFrame:
+    """Run the BSCR exposure query and retain the pipeline's source columns."""
+    return pl.read_database(QUERY, engine).select(SOURCE_COLUMNS)
 
 
-
-    , gross_loctiv as (
-
-
-    	select
-    		case when valueamt < deductamt then 0
-    		else valueamt
-    		end as pml,
-    		*
-
-    		from loc_tiv
-
-    )
-
-
-    , selected_locs as (
-
-    select  locid, accgrpid, locnum,
-    case when addrmatch = 0 then 0 else 1 end as is_geocoded,
-    case when cntrycode = 'US' then state else '' end as state,
-    cntrycode, country
-    from loc
-
-    	)
-
-
-    , loc_exposure as (
-
-    	select
-
-    	sum(gross_loctiv.pml) as pml,
-    	selected_locs.accgrpid,
-    	state, cntrycode, country,
-    	is_geocoded
-    	from gross_loctiv
-    	inner join selected_locs on selected_locs.locid = gross_loctiv.locid
-    	group by accgrpid, state, cntrycode, country, is_geocoded
-
-    	)
-
-
-    , policies as (
-
-    	select distinct policy.accgrpid, policyid, partof,
-    	case when blanlimamt = 0 then 0 else partof end as policy_limit,
-    	undcovamt, blandedamt, accgrp.userid1, accgrp.branchname, accgrp.UWritrname, is_geocoded
-    	from policy
-    	inner join accgrp on accgrp.accgrpid = policy.accgrpid
-    	inner join  loc_exposure on loc_exposure.accgrpid = accgrp.accgrpid and loc_exposure.accgrpid = policy.accgrpid
-    	where policy.policytype = 1
-
-    	)
-
-
-
-    , policy_exposure as (
-
-    		select
-    			case when sum(pml) > policy_limit then policy_limit else sum(pml) end as pml,
-    			policies.accgrpid,
-    			uwritrname,
-    			state,
-    			userid1,
-    			branchname,
-    			cntrycode,
-    			policies.is_geocoded
-    	from loc_exposure
-    	inner join policies on policies.accgrpid = loc_exposure.accgrpid
-    	group by
-    			policies.accgrpid,
-    			uwritrname,
-    			state,
-    			userid1,
-    			branchname,
-    			cntrycode,
-    			policies.is_geocoded,
-    			policy_limit
-
-    	)
-
-
-
-
-    select sum(pml) as pml, accgrpid, state,userid1,cntrycode,uwritrname,is_geocoded from policy_exposure
-    group by state,cntrycode,userid1,uwritrname,is_geocoded, accgrpid
-    order by sum(pml) desc
-
-    """
-    return (query,)
-
-
-@app.cell
-def _(engine, pl, query):
-    import marimo as mo
-    from pathlib import Path
-    from tabulate import tabulate
-    from typing import Iterable, Optional
-
-    # set the columns u want
-    COLUMNS_IN_EXCEL_TABLE = [
-        "pml",
-        "accgrpid",
-        "uwritrname",
-        "state",
-        "userid1",
-        "cntrycode",
-    ]
-
-    # This is the column that contains the portfolio name to define the entity / is_Fine Art or not
-    LOB_COLUMN = "userid1"
-
-    ## Define the BSCR Entities
-    BSCR_ENTITIES = ["HIG", "HSA", "33", "3624", "HIC"]
-
-    ## QS on Fine Art
-    QS_PCT_RETENTION = 0.5
-    SRP_PCT_RETENTION = 0.3333
-
-    ## NOTE: You can change this line to debug a failed connection and
-    ## connect directly to a csv using read_csv instead.
-    df = pl.read_database(query, engine)
-
-    df = df.select(
-        [
-            "pml",
-            "accgrpid",
-            "uwritrname",
-            "state",
-            "userid1",
-            "cntrycode",
-            "is_geocoded",
-        ]
-    )
-    sumAgg = df.select(pl.sum("pml"))[0][0]
-
+def print_source_summary(data: pl.DataFrame) -> None:
+    """Print the same operational input summary shown by the notebook."""
+    sum_agg = data.select(pl.sum("pml"))[0][0]
     print(
         tabulate(
             [
                 ["variable", "value"],
                 ["cwd", f"{Path.cwd()}"],
-                ["selected data columns", df.columns],
-                ["total pml agg in file", str(sumAgg)],
+                ["selected data columns", data.columns],
+                ["total pml agg in file", str(sum_agg)],
             ]
         )
     )
-    return (
-        BSCR_ENTITIES,
-        Iterable,
-        LOB_COLUMN,
-        Optional,
-        QS_PCT_RETENTION,
-        SRP_PCT_RETENTION,
-        df,
-        mo,
-    )
 
 
-@app.cell
-def _(df):
-    # Check what we are working with
-    df.head()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Write functions to bucket exposure
-    We write some functions  sql to decide which BSCR template we shove the data in
-    """)
-    return
-
-
-@app.cell
-def _(Iterable, Optional):
-    def which_entity(
-        modelled_lob: str, valid_bscr_entities: Iterable[str]
-    ) -> Optional[str]:
-        if modelled_lob is None:
-            return None
-        s = str(modelled_lob).upper()
-        for ent in valid_bscr_entities:
-            ent_u = ent.upper()
-            if ent_u in s:  # substring check
-                return ent_u
+def which_entity(
+    modelled_lob: str | None, valid_bscr_entities: Iterable[str]
+) -> str | None:
+    """Return the first BSCR entity code contained in a portfolio name."""
+    if modelled_lob is None:
         return None
+    modelled_lob_upper = str(modelled_lob).upper()
+    for entity in valid_bscr_entities:
+        entity_upper = entity.upper()
+        if entity_upper in modelled_lob_upper:
+            return entity_upper
+    return None
 
-    def is_fa_qs(modelled_lob: str) -> bool:
-        if modelled_lob is None:
+
+def is_fa_qs(modelled_lob: str | None) -> bool:
+    if modelled_lob is None:
+        return False
+    return "_QS" in str(modelled_lob).upper()
+
+
+def is_fa_srp(modelled_lob: str | None) -> bool:
+    if modelled_lob is None:
+        return False
+    return "_SRP" in str(modelled_lob).upper()
+
+
+def is_nahu(countrycode: str | None, state: str | None) -> bool:
+    valid_countries = {"US", "CB", "TC", "BH", "JM", "VI", "MX"}
+    valid_us_states = {
+        "Florida",
+        "Texas",
+        "Louisiana",
+        "Mississippi",
+        "Alabama",
+        "North Carolina",
+        "South Carolina",
+        "New Jersey",
+        "Virginia",
+        "New York",
+        "Connecticut",
+        "Delaware",
+        "Georgia",
+    }
+
+    if countrycode is None:
+        return False
+    if countrycode not in valid_countries:
+        return False
+    if countrycode == "US" and state is None:
+        if state is None:
+            return True
+        if state not in valid_us_states:
             return False
-        return "_QS" in str(modelled_lob).upper()
+    return True
 
-    def is_fa_srp(modelled_lob: str) -> bool:
-        if modelled_lob is None:
+
+def is_naeq(countrycode: str | None, state: str | None) -> bool:
+    valid_countries = {"US", "CA"}
+    valid_us_states = {
+        "California",
+        "Washington",
+        "Oregon",
+        "South Carolina",
+        "Tennessee",
+    }
+    if countrycode is None:
+        return False
+    if countrycode not in valid_countries:
+        return False
+    if countrycode == "US":
+        if state is None:
+            return True
+        if state not in valid_us_states:
             return False
-        return "_SRP" in str(modelled_lob).upper()
-
-    def is_nahu(countrycode: str, state: Optional[str]) -> bool:
-        valid_countries = {"US", "CB", "TC", "BH", "JM", "VI", "MX"}
-        valid_us_states = {
-            "Florida",
-            "Texas",
-            "Louisiana",
-            "Mississippi",
-            "Alabama",
-            "North Carolina",
-            "South Carolina",
-            "New Jersey",
-            "Virginia",
-            "New York",
-            "Connecticut",
-            "Delaware",
-            "Georgia",
-        }
-
-        if countrycode is None:
-            return False
-        if countrycode not in valid_countries:
-            return False 
-        if countrycode == 'US' and state is None:
-            if state is None:
-                return True
-            if state not in valid_us_states:
-                return False
-        return True
-
-    def is_naeq(countrycode: str, state: Optional[str]) -> bool:
-        valid_countries = {"US", "CA"}
-        valid_us_states = {
-            "California",
-            "Washington",
-            "Oregon",
-            "South Carolina",
-            "Tennessee",
-        }
-        if countrycode is None:
-            return False
-        if countrycode not in valid_countries:
-            return False
-        if countrycode == "US":
-            if state is None:
-                return True
-            if state not in valid_us_states:
-                return False
-        return True
-
-    def is_jp(cntrycode: str) -> bool:
-        valid_countries = {"JP"}
-        if cntrycode is None:
-            return False
-        if cntrycode not in valid_countries:
-            return False
-        return True
-
-    def is_eu(cntrycode: str) -> bool:
-        valid_countries = {
-            "GB",
-            "UK",
-            "FR",
-            "DE",
-            "BE",
-            "NL",
-            "LX",
-            "AT",
-            "DK",
-            "SE",
-            "PL",
-            "CZ",
-        }
-        if cntrycode is None:
-            return False
-        if cntrycode not in valid_countries:
-            return False
-        return True
-
-    def is_us_all(cntrycode: str) -> bool:
-        valid_countries = {"US"}
-        if cntrycode is None:
-            return False
-        if cntrycode not in valid_countries:
-            return False
-        return True
-
-    return (
-        is_eu,
-        is_fa_qs,
-        is_fa_srp,
-        is_jp,
-        is_naeq,
-        is_nahu,
-        is_us_all,
-        which_entity,
-    )
+    return True
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Map these functions to polars and apply to the data
-    """)
-    return
+def is_jp(cntrycode: str | None) -> bool:
+    return cntrycode == "JP"
 
 
-@app.cell
-def _(
-    BSCR_ENTITIES,
-    LOB_COLUMN,
-    df,
-    is_eu,
-    is_fa_qs,
-    is_fa_srp,
-    is_jp,
-    is_naeq,
-    is_nahu,
-    is_us_all,
-    pl,
-    which_entity,
-):
+def is_eu(cntrycode: str | None) -> bool:
+    valid_countries = {
+        "GB",
+        "UK",
+        "FR",
+        "DE",
+        "BE",
+        "NL",
+        "LX",
+        "AT",
+        "DK",
+        "SE",
+        "PL",
+        "CZ",
+    }
+    return cntrycode in valid_countries
 
-    df2 = df.with_columns(
+
+def is_us_all(cntrycode: str | None) -> bool:
+    return cntrycode == "US"
+
+
+def classify_exposure(data: pl.DataFrame) -> pl.DataFrame:
+    """Add BSCR entity, treaty, and regional classification columns."""
+    return data.with_columns(
         [
             pl.col(LOB_COLUMN)
             .map_elements(
-                lambda x: which_entity(x, BSCR_ENTITIES), return_dtype=pl.Utf8
+                lambda value: which_entity(value, BSCR_ENTITIES),
+                return_dtype=pl.Utf8,
             )
             .alias("bscr_entity"),
             pl.col(LOB_COLUMN)
@@ -432,37 +320,34 @@ def _(
             .alias("is_srp"),
             pl.struct(["cntrycode", "state"])
             .map_elements(
-                lambda r: is_nahu(r["cntrycode"], r["state"]), return_dtype=pl.Boolean
+                lambda row: is_nahu(row["cntrycode"], row["state"]),
+                return_dtype=pl.Boolean,
             )
             .alias("is_nahu"),
             pl.struct(["cntrycode", "state"])
             .map_elements(
-                lambda r: is_naeq(r["cntrycode"], r["state"]), return_dtype=pl.Boolean
+                lambda row: is_naeq(row["cntrycode"], row["state"]),
+                return_dtype=pl.Boolean,
             )
             .alias("is_na_eq"),
             pl.struct(["cntrycode"])
-            .map_elements(lambda r: is_jp(r["cntrycode"]), return_dtype=pl.Boolean)
+            .map_elements(lambda row: is_jp(row["cntrycode"]), return_dtype=pl.Boolean)
             .alias("is_jp"),
             pl.struct(["cntrycode"])
-            .map_elements(lambda r: is_eu(r["cntrycode"]), return_dtype=pl.Boolean)
+            .map_elements(lambda row: is_eu(row["cntrycode"]), return_dtype=pl.Boolean)
             .alias("is_eu"),
             pl.struct(["cntrycode"])
-            .map_elements(lambda r: is_us_all(r["cntrycode"]), return_dtype=pl.Boolean)
+            .map_elements(
+                lambda row: is_us_all(row["cntrycode"]), return_dtype=pl.Boolean
+            )
             .alias("is_us_all"),
         ]
     )
-    return (df2,)
 
 
-@app.cell
-def _(df2):
-    df2.head()
-    return
-
-
-@app.cell
-def _(QS_PCT_RETENTION, SRP_PCT_RETENTION, df2, pl):
-    df3 = df2.with_columns(
+def apply_retentions(data: pl.DataFrame) -> pl.DataFrame:
+    """Apply the Fine Art QS and SRP retention percentages."""
+    return data.with_columns(
         pl.when(pl.col("is_qs"))
         .then(pl.col("pml") * pl.lit(QS_PCT_RETENTION))
         .when(pl.col("is_srp"))
@@ -470,30 +355,11 @@ def _(QS_PCT_RETENTION, SRP_PCT_RETENTION, df2, pl):
         .otherwise(pl.col("pml"))
         .alias("net")
     )
-    df3.columns
-    return (df3,)
 
 
-@app.cell
-def _(df3):
-    df3
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Final stage: Sum / group by the calculated columns
-    Yes polars is a bit esoteric and not ideal for this, but it got the job done. Easiest way to see
-    what is going on here is just run the cells. it's grouping, summing and concating outputs
-    """)
-    return
-
-
-@app.cell
-def _(df3, pl):
-
-    group_cols = [
+def aggregate_regional_wide(data: pl.DataFrame) -> pl.DataFrame:
+    """Aggregate gross and net exposure across the regional flags."""
+    group_columns = [
         "bscr_entity",
         "is_nahu",
         "is_na_eq",
@@ -503,9 +369,8 @@ def _(df3, pl):
         "is_geocoded",
         "cntrycode",
     ]
-
-    wide_format_regions = (
-        df3.group_by(group_cols)
+    return (
+        data.group_by(group_columns)
         .agg(
             [
                 pl.sum("pml").alias("sum_pml"),
@@ -513,32 +378,28 @@ def _(df3, pl):
                 pl.len().alias("count_policies"),
             ]
         )
-        .sort(group_cols)
+        .sort(group_columns)
     )
 
-    wide_format_regions
-    return (wide_format_regions,)
 
-
-@app.cell
-def _(pl, wide_format_regions):
+def reshape_regional_exposure(wide_regions: pl.DataFrame) -> pl.DataFrame:
+    """Convert true regional flags to one row per region and grouping key."""
     region_flags = ["is_nahu", "is_na_eq", "is_jp", "is_eu", "is_us_all"]
-
-    regional_long = (
-        wide_format_regions.unpivot(
+    return (
+        wide_regions.unpivot(
             index=[
                 "bscr_entity",
                 "sum_pml",
                 "sum_net",
                 "count_policies",
                 "is_geocoded",
-                "cntrycode"
+                "cntrycode",
             ],
             on=region_flags,
             variable_name="region",
             value_name="in_region",
         )
-        .filter(pl.col("in_region"))  # keep only True rows
+        .filter(pl.col("in_region"))
         .group_by(["bscr_entity", "region", "is_geocoded", "cntrycode"])
         .agg(
             [
@@ -548,14 +409,12 @@ def _(pl, wide_format_regions):
             ]
         )
     )
-    regional_long
-    return (regional_long,)
 
 
-@app.cell
-def _(df3, pl):
-    all_long = (
-        df3.group_by(["bscr_entity", "is_geocoded", "cntrycode"])
+def aggregate_all_exposure(data: pl.DataFrame) -> pl.DataFrame:
+    """Aggregate the all-regions rows in the final output schema."""
+    return (
+        data.group_by(["bscr_entity", "is_geocoded", "cntrycode"])
         .agg(
             [
                 pl.sum("pml").alias("sum_pml"),
@@ -576,37 +435,96 @@ def _(df3, pl):
             ]
         )
     )
-    all_long
-    return (all_long,)
 
 
-@app.cell
-def _(all_long, pl, regional_long):
-    final_long = pl.concat(
-        [
-            regional_long.select(
-                [
-                    "cntrycode",
-                    "bscr_entity",
-                    "region",
-                    "sum_pml",
-                    "sum_net",
-                    "count_policies",
-                    "is_geocoded",
-                ]
-            ),
-            all_long,
-        ]
-    ).sort(["region", "bscr_entity", "is_geocoded", "cntrycode"])
-    final_long
-    return (final_long,)
+def combine_region_outputs(
+    regional_exposure: pl.DataFrame, all_exposure: pl.DataFrame
+) -> pl.DataFrame:
+    """Combine regional and all-regions aggregates in the export schema."""
+    output_columns = [
+        "cntrycode",
+        "bscr_entity",
+        "region",
+        "sum_pml",
+        "sum_net",
+        "count_policies",
+        "is_geocoded",
+    ]
+    return pl.concat([regional_exposure.select(output_columns), all_exposure]).sort(
+        ["region", "bscr_entity", "is_geocoded", "cntrycode"]
+    )
 
 
-@app.cell
-def _(final_long):
-    final_long.write_csv("output.csv")
-    return
+def build_bscr_output(source_data: pl.DataFrame) -> pl.DataFrame:
+    """Transform queried exposure to the BSCR export; currency conversion is excluded."""
+    classified = classify_exposure(source_data)
+    retained = apply_retentions(classified)
+    wide_regions = aggregate_regional_wide(retained)
+    regional_exposure = reshape_regional_exposure(wide_regions)
+    all_exposure = aggregate_all_exposure(retained)
+    return combine_region_outputs(regional_exposure, all_exposure)
+
+
+def run_pipeline(
+    server: str = DEFAULT_SERVER,
+    database: str = DEFAULT_DATABASE,
+    encrypt: str = DEFAULT_ENCRYPT,
+    trust_server_certificate: str = DEFAULT_TRUST_SERVER_CERTIFICATE,
+    output: Path = DEFAULT_OUTPUT,
+) -> pl.DataFrame:
+    """Load, transform, and export the BSCR aggregates."""
+    engine = build_engine(server, database, encrypt, trust_server_certificate)
+    try:
+        check_connection(engine)
+        source_data = load_exposure(engine)
+    finally:
+        engine.dispose()
+
+    print_source_summary(source_data)
+    final_output = build_bscr_output(source_data)
+    final_output.write_csv(output)
+    return final_output
+
+
+def build_argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Produce the BSCR UKEU aggregate CSV from SQL Server exposure data."
+    )
+    parser.add_argument("--server", default=DEFAULT_SERVER, help="SQL Server instance")
+    parser.add_argument(
+        "--database", default=DEFAULT_DATABASE, help="SQL Server database name"
+    )
+    parser.add_argument(
+        "--encrypt",
+        choices=("yes", "no"),
+        default=DEFAULT_ENCRYPT,
+        help="ODBC connection encryption setting (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--trust-server-certificate",
+        choices=("yes", "no"),
+        default=DEFAULT_TRUST_SERVER_CERTIFICATE,
+        help="ODBC certificate trust setting (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT,
+        help="output CSV path (default: %(default)s)",
+    )
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = build_argument_parser().parse_args(argv)
+    run_pipeline(
+        server=args.server,
+        database=args.database,
+        encrypt=args.encrypt,
+        trust_server_certificate=args.trust_server_certificate,
+        output=args.output,
+    )
 
 
 if __name__ == "__main__":
-    app.run()
+    main()

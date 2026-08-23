@@ -1,5 +1,12 @@
 # Controls and evidence
 
+## Data sources
+
+- The exact SQL Server EDM snapshot recorded for the run.
+- Any reference databases, mappings, rate sets, and controlled workbooks used by the selected process.
+- Current regulator instructions and approved return templates held outside this repository.
+
+
 Use this checklist for every regulatory-return execution. It does not replace
 the regulator's current instructions or the team's approved control framework.
 
@@ -33,8 +40,8 @@ this repository.
 - Confirm the currency table date/basis and the intended currencies for each
   output field.
 - Confirm Fine Art QS/SRP retentions with the current reinsurance arrangement.
-- For BSCR and PRA, obtain the approved workbook and inspect formulas, named
-  ranges, pivot sources, external links and calculation mode before use.
+- For BSCR and PRA, freeze the approved working copies and inspect formulas,
+  named ranges, pivot sources, external links, calculation mode, and green cells before use.
 
 ## Extract controls
 
@@ -83,8 +90,9 @@ For BSCR and PRA workbooks:
 - record every manual adjustment separately; and
 - archive the reviewed workbook without overwriting the input evidence.
 
-The workbooks are absent from this repository, so their actual formulas and
-colour conventions must be reviewed after the approved files are recovered.
+The repository contains working and return workbooks, but their presence does
+not establish approval. Compare each checked-in file with the controlled
+reporting-cycle copy before calculation or submission.
 
 ## Completion evidence
 

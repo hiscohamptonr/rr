@@ -1,122 +1,90 @@
-\---
+# BSCR Schedule X runbook
 
-title: bscr-runbook
-time: 1h - 2h
-author: Richard Hampton
-required software:
-python: uv package manager
-output: csv
----
+## Data sources
 
-# Summary
-
-This runbook describes step by step how to run the BSCR process for
-BSCR Schedule V.
-
-There are 5 BSCR outputs required, one for each entity.
-
-The output of the runbook is a csv file that requires
-minimal manipulation in Excel to produce the required limits
-and policy counts for Schedule V.
+- Configured SQL Server EDM tables `loccvg`, `loc`, `policy`, and `accgrp`.
+- [`BSCR_UKEU.py`](BSCR_UKEU.py).
+- [`Workings_with_geocodingFW - Including blanks USD.xlsx`](Workings_with_geocodingFW%20-%20Including%20blanks%20USD.xlsx).
+- [`2026 BSCR - UKEU - HIC.xlsx`](2026%20BSCR%20-%20UKEU%20-%20HIC.xlsx).
+- Current BSCR instructions, approved mappings, rate set, and return-owner decisions.
 
 ## Requirements
 
-The user requires access to the SQL Server storing the
-source EDM. The script relies on the trusted connection
-to SQL Server being available.
+- Python 3.13+ and `uv`.
+- Trusted Microsoft/Windows access to the selected SQL Server EDM.
+- ODBC Driver 18 for SQL Server.
+- Approved database, reporting scope/date, mappings, retention, currency basis, and output location.
 
-## Run the process
-
-The preferred method is to open this inside marimo notebooks.
-You can execute the script using python directly if you know
-what you're doing.
-
-
-
-## Architecture
-
-Single python script written in Marimo notebook style.
-This can also be run as a standalone python script.
-
-
-
-### Step 1: Load Marimo
-
-These commands should load a marimo notebook server.
-From there you can load the file in a notebook itnerface and run
-each cell one by one if you prefer.
+## Install and inspect
 
 ```bash
-
 uv sync
-uv run marimo edit
-
+uv run python bscr/BSCR_UKEU.py --help
 ```
 
-\[Marimo Docs]
+`--help` does not connect to SQL Server.
 
+## Pre-run controls
 
+1. Record server, EDM database, reporting date, roll-up/version, script revision, operator, and reviewer.
+2. Approve `peril = 1`, `policytype = 1`, deductible/limit logic, joins, and grouping grain.
+3. Resolve the known `is_nahu()` defect and approve entity/geography mappings before a production run.
+4. Approve `_QS` and `_SRP` factors; `_SRP` differs across Python, SQL, and workbook artefacts.
+5. Confirm source currency and the workings workbook's hard-coded `1.35` conversion.
+6. Freeze the controlled copies of both workbooks and verify their formulas, pivot ranges, external links, and green cells.
 
-### Step 2: Edit database and EDM config
+## Run
 
-Browse to the first python cell approximately line 40:
-Edit these variables as needed:
+```bash
+uv run python bscr/BSCR_UKEU.py \
+  --server 'SQLSERVER\INSTANCE' \
+  --database APPROVED_EDM_DATABASE \
+  --output outputs/bscr-output.csv
+```
 
-SERVER
-DATABASE
+Optional connection controls:
 
-Run that cell, the script contains an assertion to check the connection
-is successful. If you receive an error it is likely a SQL Connection error.
-In this case see the troubleshooting section.
+```text
+--encrypt {yes,no}
+--trust-server-certificate {yes,no}
+```
 
-## Step 3:  Run remaining cells
+Do not weaken connection security merely to make a run succeed. The script tests the connection, executes the embedded query, prints selected-source diagnostics, and writes the CSV. An existing output path may be replaced.
 
-Should you wish to change any of the selection criteria for the BSCR you
-can do so in the cell which contains functions like is\_nahu, is\_jp and so on.
-This is not recommended.
+## Output contract
 
-## Step 4: Copy output csv to BSCR folder and perform diff
+```text
+cntrycode,bscr_entity,region,sum_pml,sum_net,count_policies,is_geocoded
+```
 
-Copy the csv into an Excel file in the BSCR workings folder.
-Pivot the raw data.
-Difference the result from the All World and US Only to produce
-the required policy count and limits for All World xUS.
+The CSV contains all configured entities. It performs no currency conversion and has no currency column.
 
-> Note: This is technically incorrect but immaterial for the UKEU
-> policies as very few will be cross border policies.
+## Workbook handoff
 
+1. Preserve the raw CSV and its run metadata.
+2. Load the seven CSV columns into `Sheet1` A:G of a controlled copy of the workings workbook; preserve formula columns.
+3. Confirm the formulas applying `1.35` and `/1,000,000` are approved and filled for every input row.
+4. Refresh only the intended `output` and `piv` ranges.
+5. Reconcile query, CSV, `Sheet1`, `output`, and `piv` gross/net totals and row counts.
+6. Enter reviewed results into the designated green cells in HIC Schedules X(a), X(b), X(c), and X(f).
+7. Record source range, destination cell, value, currency, unit, as-of date, preparer, and reviewer for every entry.
+8. Check stale external links before sign-off; the HIC workbook currently references older external templates.
 
+The final HIC workbook is not formula-linked to the workings workbook. Do not describe the manual transfer as automated.
 
 ## Troubleshooting
 
-### Symtom: Failure to connect to SQL
+### SQL connection failure
 
-Do not waste time trying to get a SQL Server connection
-working if it doesn't work out the box. This is a problem
-with the way Hiscox is setup in that you need to have the
-trusted connection/microsoft login access to the SQL Server
-and ODBC Driver.
+- Confirm trusted access to the exact server and database.
+- Confirm ODBC Driver 18 and the instance name.
+- Use only approved encryption/certificate settings.
+- Do not add credentials to source control.
 
+The script has no CSV-input fallback. Adding one requires a controlled code change, schema validation, and reconciliation.
 
+### Implausible totals
 
-#### Cause A: ODBC Driver error
+Treat the run as failed. Review join cardinality, mixed currencies, unmapped entities, overlapping geography flags, geocoding, row-based counts, deductible/limit logic, and retention before workbook handoff.
 
-However if it is an ODBC driver error you are seeing:
-
-* Type ODBC in search, go to Drivers.
-* Note down the ODBC drivers you have installed
-* If not ODBC 18 driver then change the script to the
-correct driver.
-
-#### Cause B: Cannot debug further
-
-Do not waste more time tryign to debug SQL connections.
-Copy the SQL script and manually save it into a csv file.
-Point the script at this line:
-
-``` python
-    ## NOTE: You can change this line to debug a failed connection and
-    ## connect directly to a csv using read\\\_csv instead.
-    df = pl.read\\\_database(query, engine)
-```
-
+See the [BSCR process guide](../docs/regulatory-returns/bscr.md) and [complete data-flow map](../docs/regulatory-returns/data-flow.md).

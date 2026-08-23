@@ -1,3 +1,12 @@
+# Archived BSCR guide copy
+
+> Archived duplicate. Use [`../../bscr/bscr_guide.md`](../../bscr/bscr_guide.md) and [`../regulatory-returns/bscr.md`](../regulatory-returns/bscr.md).
+
+## Data sources
+
+- GC-format SQL Server EDM tables queried by `bscr/BSCR_UKEU.py`.
+- Current BSCR instructions and approved Schedule V workbook, which are external to this repository.
+
 # Intro
 This script produces aggregates/limits and policy counts for the
 BSCR return.
@@ -36,5 +45,5 @@ calculate this.
 ## Procedure
 The step by step procedure to re-run this analysis is
 in a runbook stored locally here:
-[BSCR Runbook](bscr-runbook.md)
+[BSCR Runbook](bscr-runbook-copy.md)
 

@@ -1,86 +1,75 @@
 # Regulatory returns
 
-This section separates regulatory-return work from the repository's supporting
-aggregation and exposure-reporting utilities. It records what is present, what
-is missing, and which controls must be completed before figures are used in a
-submission.
+## Data sources
+
+- Annual GC-format SQL Server EDMs selected for each return.
+- Received S33 exposure workbook and its 22 January 2026 instruction email.
+- Checked-in BSCR, PRA, and Lloyd's calculation/return workbooks.
+- `RMS_USERCONFIG.dbo.currfx`, `RMS_GEOGRAPHY.dbo.country`, embedded lookup tabs, and manually maintained scale factors where used.
+- Current regulator instructions, approved templates, mappings, and cycle decisions held outside this repository.
+
+The [complete data-flow map](data-flow.md) is the canonical inventory and calculation-lineage reference. It distinguishes direct links, structural schema matches, manual handoffs, and unresolved provenance.
 
 ## Return catalogue
 
-| Return | Repository implementation | Artifact status | Detailed guide |
-| --- | --- | --- | --- |
-| Lloyd's supplementary returns | T-SQL extracts for Rest of World, South Africa and California | SQL is present; run it directly against the annual SQL Server EDM. The final supplementary workbook is not present. | [Lloyd's supplementary returns](lloyds-supplementary.md) |
-| BSCR Schedule V | Marimo/Python transformation over a SQL Server EDM extract | Script and historical notes are present. No Excel workbook is present in the current tree or reachable Git history. | [BSCR Schedule V](bscr.md) |
-| PRA January/February return | Historical notes for an Excel-led workflow | Not reproducible here: the expected workbook and `Region_mappings` lookup are absent from the current tree and reachable Git history. | [PRA return](pra.md) |
+| Return | Repository implementation | Checked-in artefacts | Detailed guide |
+|---|---|---|---|
+| Lloyd's supplementary information | Received S33 source, SQL extracts, and calculation workbooks for RoW, California, South Africa, and EU CRESTA | Source workbook/email and four workings are present; final approved submission template remains external | [Lloyd's supplementary](lloyds-supplementary.md) |
+| BSCR Schedule X | Python/Polars SQL-to-CSV extraction, BSCR pivot workings, and HIC return workbook | Script, workings, and Schedules X(a), X(b), X(c), X(f) are present | [BSCR](bscr.md) |
+| PRA and combined BSCR aggregates | Embedded SQL, mappings, raw data, formula tables, pivots, and BSCR calculation panels | Combined PRA/BSCR workbook is present twice identically; final PRA template remains external | [PRA](pra.md) |
 
-The spreadsheet check covered `.xlsx`, `.xlsm`, `.xls`, `.xlsb` and `.ods`
-files in the working tree, including ignored files, and all reachable Git
-history. No matches were found. The notes describe spreadsheet formulas,
-pivots and final green tabs, but those artifacts cannot be inspected or
-confirmed from this repository.
-
-## Supporting material, not classified here as a return
-
-| Material | Role |
-| --- | --- |
-| [`aggregates/aggs-from-edm.sql`](../../aggregates/aggs-from-edm.sql) | Generic, EDM-specific aggregation query used as supporting analysis and as the historical basis for BSCR/PRA work. |
-| [`globalexposures/`](../../globalexposures/) | Event-footprint exposure report with its own Python workflow; it is not one of the supplementary-return SQL extracts. |
-| Root-level `main.py` | Package placeholder; it does not run a regulatory return. |
-
-## Shared data flow
+## Shared flow
 
 ```mermaid
 flowchart LR
-    A[Annual GC retail roll-up EDM] --> B{Return-specific extract}
-    B --> C[Lloyd's supplementary SQL]
-    B --> D[BSCR Python/Marimo]
-    B --> E[PRA workbook SQL tab]
-    C --> F[Supplementary workbook]
-    D --> G[output.csv]
-    G --> H[BSCR workbook pivots and green outputs]
-    E --> I[Formulas and pivots]
-    I --> J[PRA green outputs]
+    EDM[Annual SQL Server EDM] --> PY[BSCR Python]
+    PY --> BW[BSCR workings]
+    BW -->|manual green-cell handoff| HIC[HIC BSCR Schedule X]
+
+    EDM --> SQL[Aggregate / supplementary SQL]
+    SQL --> PRA[PRA and BSCR workbook]
+    SQL -.-> LW[Lloyd's workings]
+
+    MSG[S33 instruction email] --> SRC[S33 Weather / Quake / EU source]
+    SRC --> LW
+    LW -->|manual template handoff| LLOYDS[Lloyd's supplementary return]
 ```
 
-The workbook stages shown above are described by the historical notes or the
-user-provided process. Their files are not in this repository. Recover the
-approved workbooks before attempting the final BSCR or PRA return stage.
+Dotted linkage means the checked-in SQL structurally fits workbook data tabs but the exact population run is not recorded.
 
 ## Source-of-truth order
 
 When instructions disagree, use:
 
 1. current regulator instructions and current return template;
-2. approved reporting-cycle decisions, mappings and workbooks;
-3. current, reviewed repository scripts;
-4. historical notes in this repository.
+2. approved reporting-cycle decisions, mappings, rates, and workbooks;
+3. current reviewed repository scripts and SQL;
+4. historical notes under `docs/archive/`.
 
-The scripts contain hard-coded 2026 database names, entity filters, peril codes
-and retention factors. They are evidence of the 2026 process, not standing
-regulatory definitions.
+Checked-in values and formulas are evidence of a specific process state, not standing regulatory definitions.
 
-## Standard annual workflow
+## Standard controlled workflow
 
-1. Obtain the current return template, instructions, reporting date and entity
-   scope.
-2. Record the exact EDM database/version and confirm its schema matches the
-   script's expected GC 2026 layout.
-3. Review every hard-coded item: database, `PERIL`, `POLICYTYPE`, portfolios,
-   geography, currency table and Fine Art retention.
-4. Run a pre-aggregation row-count and join-cardinality review.
-5. Execute the return-specific process.
-6. Reconcile gross/net totals, currencies, entity totals and geography totals
-   before copying results into a workbook.
-7. Complete the evidence record in [Controls and evidence](controls.md).
-8. Obtain review of both the extract and final template; archive the exact
-   script, output, workbook and reconciliation used.
+1. Freeze the current template, instructions, reporting date, entity/portfolio scope, source workbook versions, and EDM database.
+2. Review hard-coded database, peril, policy type, geography, retention, FX, scale-factor, and mapping assumptions.
+3. Record the exact query/script and row counts used to populate each workbook data tab.
+4. Reconcile source totals before formulas and pivots.
+5. Refresh only the intended tables/pivots and record their source ranges.
+6. Reconcile gross/net, currency, units, entity, geography, and as-of date through every handoff.
+7. Populate only approved green/input cells; preserve template formulas, validation, and structure.
+8. Complete [controls and evidence](controls.md), including preparer/reviewer records.
+9. Archive the exact source, code, output, workbook, reconciliation, and final submission used.
+
+## Known cross-process risks
+
+The current artefacts contain conflicting FX and `_SRP` retention factors, different geography lists, stale as-of dates, duplicate copies, incomplete SQL producers, stale external links, and manual green-cell handoffs. The [data-flow discrepancy register](data-flow.md#known-mismatches-and-unresolved-controls) lists each issue and is required reading before use.
 
 ## Documentation map
 
-- [Lloyd's supplementary returns](lloyds-supplementary.md): SQL inventory,
-  calculation analysis and direct SQL Server runbook.
-- [BSCR Schedule V](bscr.md): Python/Marimo workflow, spreadsheet handoff and
-  known limitations.
-- [PRA return](pra.md): recoverable workflow, spreadsheet logic and missing
-  dependencies.
-- [Controls and evidence](controls.md): reusable execution and review checklist.
+- [Complete data-flow map](data-flow.md)
+- [Lloyd's supplementary information](lloyds-supplementary.md)
+- [BSCR Schedule X](bscr.md)
+- [PRA and combined BSCR aggregates](pra.md)
+- [Controls and evidence](controls.md)
+
+Historical and duplicate process notes are retained under [`docs/archive/`](../archive/) and are not current operating instructions.

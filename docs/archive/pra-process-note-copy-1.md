@@ -1,3 +1,13 @@
+# Archived PRA/BSCR process note
+
+> Archived duplicate. Use [`../regulatory-returns/pra.md`](../regulatory-returns/pra.md) for the current recovery guide.
+
+## Data sources
+
+- Historical `PRA_BSCR_Aggs` workbook SQL tab (not present in this repository).
+- Historical `Region_mappings` lookup (not present in this repository).
+- GC-format SQL Server exposure data model (EDM) named by the missing workbook.
+
 # \---
 
 Time: 3h

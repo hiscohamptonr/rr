@@ -1,3 +1,12 @@
+# Archived BSCR runbook copy
+
+> Archived duplicate describing the retired Marimo workflow; do not run its commands. Use [`../../bscr/bscr-runbook.md`](../../bscr/bscr-runbook.md) and [`../regulatory-returns/bscr.md`](../regulatory-returns/bscr.md).
+
+## Data sources
+
+- GC-format SQL Server EDM tables queried by `bscr/BSCR_UKEU.py`.
+- Current BSCR instructions and approved Schedule V workbook, which are external to this repository.
+
 \---
 
 title: bscr-runbook

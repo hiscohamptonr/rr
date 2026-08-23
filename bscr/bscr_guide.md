@@ -1,40 +1,56 @@
-# Intro
-This script produces aggregates/limits and policy counts for the
-BSCR return.
+# BSCR aggregate guide
 
-## Material assumptions
-It contains known errors and assumptions, these are:
-1. Potentially not 100% accuracy on which region counts as
-Hurricane region in USA.
-2. Potential double counting on policies between US states and countries
-especially prominent when filling out the All World policy count.
+## Data sources
 
-These errors were deemed immaterial for the return.
+- Configured SQL Server EDM tables `loccvg`, `loc`, `policy`, and `accgrp`.
+- [`BSCR_UKEU.py`](BSCR_UKEU.py).
+- BSCR calculation workbook [`Workings_with_geocodingFW - Including blanks USD.xlsx`](Workings_with_geocodingFW%20-%20Including%20blanks%20USD.xlsx).
+- HIC return workbook [`2026 BSCR - UKEU - HIC.xlsx`](2026%20BSCR%20-%20UKEU%20-%20HIC.xlsx).
+- Current BSCR instructions, mappings, rates, and approved green-cell handoff.
 
+## Purpose
 
-## Other assumptions
-The SQL query used to generate aggregates for the BSCR is the
-exact same query as used for the PRA return.
+`BSCR_UKEU.py` is the SQL-to-CSV calculation stage for BSCR Schedule X. It allocates account PML to locations, applies deductible and policy-limit logic, assigns entities and regional flags, applies Fine Art retention, and writes long-form grouped totals.
 
-This query was hand written at short notice and therefore contains
-simplifications and corner-cuts to produce reasonable exposures.
+## Calculation boundary
 
-The original query was tested against a Risklink aggregation output
-and the total aggregate was similar, but not identical.
+The script owns:
 
-This means there are policy terms not captured by the query, which is
-expected given the constraints but they were again deemed immaterial.
+- SQL extraction from the configured EDM;
+- location TIV and PML allocation;
+- invalid-location zeroing;
+- deductible and policy-limit application;
+- entity/geography/geocoding classification;
+- `_QS` and `_SRP` retention;
+- grouped gross/net CSV output.
+
+The workbooks own:
+
+- the hard-coded `1.35` USD conversion and USD-millions columns;
+- consolidation and pivots by entity, geography, and geocoding;
+- final Schedule X formulas and approved green-cell entry.
+
+No formula relationship connects the workings workbook to the final HIC workbook.
 
 ## Output
-The procedure outputs raw csv file with pre-calculated limits and
-policy counts. It needs slight manipulation in Excel to calculate
-the difference between All World and US only.
 
-This years output I created 3 pivot tables and did a quick diff to
-calculate this.
+```text
+cntrycode,bscr_entity,region,sum_pml,sum_net,count_policies,is_geocoded
+```
 
-## Procedure
-The step by step procedure to re-run this analysis is
-in a runbook stored locally here:
-[BSCR Runbook](bscr-runbook.md)
+`count_policies` is a count of contributing grouped rows, not guaranteed distinct policies. Geography flags overlap, while `ALL` is calculated separately.
 
+## Material assumptions and limitations
+
+- The embedded SQL targets a specific GC-format EDM.
+- `is_nahu()` currently returns true for every non-null US state; fix and approve the intended state mapping before production use.
+- Python and workbook geography lists differ.
+- The script performs no currency conversion and drops currency from its output.
+- `_SRP` uses `0.3333` in Python, compared with `33%` in the PRA workbook and `0.33333` in SQL.
+- The workings workbook's `1.35` factor must be confirmed against the source currency and reporting-cycle rate.
+- The final HIC workbook contains stale external links to older templates.
+- Historical similarity to model output is not current reconciliation or materiality approval.
+
+## Controlled use
+
+Use the [runbook](bscr-runbook.md) for commands. Use the [BSCR process guide](../docs/regulatory-returns/bscr.md) and [complete data-flow map](../docs/regulatory-returns/data-flow.md) for workbook lineage, known mismatches, and green-cell evidence requirements.
