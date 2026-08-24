@@ -1,5 +1,12 @@
 # Global Exposures
 
+## Summary
+
+- **Sources:** `GlobalExposures` event/polygon/PML tables and the approved annual EDM.
+- **Calculation:** `exposures.py`.
+- **Final workbook/output:** CSV output pack under `global_exposures_outputs/`; there is no final Excel workbook.
+- **Time estimate:** 2 days.
+
 ## Data sources
 
 - `GlobalExposures.data.Events`: event identifiers, names, and descriptions.

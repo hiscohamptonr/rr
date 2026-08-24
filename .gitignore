@@ -12,7 +12,4 @@ wheels/
 
 *.json
 *.sqlite
-*.json
 *.csv
-*.sqlite
-

@@ -2,19 +2,11 @@
 name = "regulatory-returns"
 version = "0.1.0"
 description = "Regulatory return and exposure aggregation scripts"
-readme = "docs/index.md"
+readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "duckdb>=1.4.4",
-    "numpy>=2.4.2",
     "polars>=1.38.1",
-    "pyarrow>=23.0.1",
     "pyodbc>=5.3.0",
     "sqlalchemy>=2.0.47",
     "tabulate>=0.9.0",
-]
-
-[dependency-groups]
-dev = [
-    "edit>=0.0.4",
 ]
