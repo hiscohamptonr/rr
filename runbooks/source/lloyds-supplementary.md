@@ -81,7 +81,7 @@ The current column M formula multiplies `TSI_NET` by the row scale factor even t
 7. Use **Ctrl+Alt+F9** to force a full recalculation.
 8. Review `05 South Africa EQ Aggs` and reconcile its zone totals to `Core data` before handoff.
 
-The workbook is labelled January 2026, but its report and FX table contain legacy 2024 labels. The SQL-to-sheet match is structural; the workbook contains no run record proving that its cached rows came from the current SQL. Confirm the date, FX, units, and lineage before use.
+The workbook is labelled January 2026, but its report and FX labels require confirmation against the current cycle. The SQL-to-sheet match is structural; the workbook contains no run record proving that its cached rows came from the current SQL. Confirm the date, FX, units, and lineage before use.
 
 ## California wildfire
 
@@ -102,7 +102,7 @@ The workbook is labelled January 2026, but its report and FX table contain legac
 7. Use **Ctrl+Alt+F9** to force a full recalculation.
 8. Review `06 California Wildfire Aggs` and reconcile its county total to `Core data!M:M` before handoff.
 
-The report still says 01/01/2025 even though the SQL names a January 2026 EDM. The schema match does not prove cached-data lineage. Resolve the date and retain the proxy approval before the result is used.
+The report date does not match the January 2026 SQL source. The schema match does not prove cached-data lineage. Resolve the date and retain the proxy approval before the result is used.
 
 ## EU CRESTA
 
@@ -123,7 +123,7 @@ The workbook contains `Core data EQ`, `Core data FL`, `Cat Class Mapping`, `Note
 7. Use **Ctrl+Alt+F9** to force a full recalculation.
 8. Review earthquake and flood results on `11 LIC EU CRESTA` and reconcile each peril total to its core sheet before handoff.
 
-The report says 01/07/2024. `Fx!C7` is `1.25 / 1.21 = 1.0330578512`, which is not the email's 2026 EUR rate of `1.15`. Confirm whether `Fx!C7` is an intentional cross-rate or stale logic before using the output.
+The report date does not match the January 2026 cycle. `Fx!C7` is `1.25 / 1.21 = 1.0330578512`, which is not the email's 2026 EUR rate of `1.15`. Confirm whether `Fx!C7` is an intentional cross-rate or stale logic before using the output.
 
 ## Received S33 workbook
 
@@ -140,7 +140,7 @@ Keep the workbook and companion message together to preserve source instructions
 - Establish whether each current core/extract tab came from the received S33 workbook, a documented SQL run, or another source; matching columns alone do not prove lineage.
 - Record the exact peril/policy codes and scale-factor derivation for every RoW extract.
 - Resolve the California wildfire proxy/PML decision with the owner.
-- Resolve the legacy 2024/2025 dates in the South Africa, California, and EU workbooks.
+- Resolve the non-current dates in the South Africa, California, and EU workbooks.
 - Confirm units, gross/net basis, currency, FX, as-of date, and portfolio scope before any template handoff.
 - Reconcile each final report total to its source/core data after refresh or recalculation.
 

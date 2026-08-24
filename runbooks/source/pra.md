@@ -26,7 +26,6 @@ The legacy workbook route records `HISCO_UKEU_01JAN26_010126_ROLLUP_ByLoB_GC_v25
 | `cds_mapping` | Portfolio/CDS class lookup |
 | `rms_geog` | RMS country and region lookup |
 | `sql` | Legacy aggregate extraction query using peril `2` and policy type `2` |
-| `AUDIT_SUMMARY` | Purpose, lineage, output, and required-control reminder |
 
 The row counts above describe the checked-in January evidence. They are comparison points, not fixed sizes for a future run.
 
@@ -74,7 +73,7 @@ Retain all four CSVs with the server, database, codes, script revision, executio
 
 ## Load earthquake data
 
-1. Open a controlled copy of `pra/workbooks/PRA_BSCR_Aggs.xlsx` and review `AUDIT_SUMMARY`.
+1. Open a controlled copy of `pra/workbooks/PRA_BSCR_Aggs.xlsx`.
 2. Record the current formulas, table ranges, pivot sources, calculation mode, mappings, and pre-refresh totals.
 3. Clear only the previous input rows in `raw_data_for_bscr_splits_eq!A:G`; preserve row 1, formulas H:P, panels to the right, tables, and formatting. Column Q is currently unused.
 4. Paste `pra-eq-raw.csv` into `raw_data_for_bscr_splits_eq!A:G` in the existing header order.

@@ -115,7 +115,7 @@ For every entry, record the source workbook/range, destination workbook/cell, va
 - Python and workbook geography lists differ, including Caribbean codes and US coastal-state definitions.
 - `_SRP` is `0.3333` in Python, `33%` in the PRA workbook, and `0.33333` in supplementary SQL.
 - The workings workbook hard-codes `1.35`; confirm the source amounts are on the intended basis and that the rate is approved for the cycle.
-- The final HIC workbook contains links to older 2025 and 2017 workbooks and a blank 2026 HIG template. Schedule X(b) references an external `Import` sheet.
+- The final HIC workbook contains links to older external workbooks and a blank current-cycle HIG template. Schedule X(b) references an external `Import` sheet.
 - Confirm every pivot source range and refresh state before handoff.
 - Review policy/account join cardinality and `count_policies`; a final group does not prove that upstream one-to-many joins did not multiply exposure.
 
