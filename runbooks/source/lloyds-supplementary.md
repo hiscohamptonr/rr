@@ -9,11 +9,19 @@
 
 ## Data sources
 
-- Received source workbook: `lloyds/source/Supplementary Info UKEU S33.xlsx`, with `Weather`, `Quake`, and `EU exposure - S33` tabs.
+- Received source workbook: `lloyds/source/Supplementary Info UKEU S33.xlsx`, with `Weather`, `Quake`, and `EU exposure - weather & quake` tabs.
 - Companion instruction/provenance email: `lloyds/source/RE RDS Supplementary Information - UKEU 33.msg`.
 - Checked-in SQL: the three query files under `lloyds/sql/`.
 - Calculation workbooks: the four `.xlsx` files under `lloyds/workbooks/`.
 - Lloyd's templates, guidance, and final approved submission: held outside this repository.
+
+For exact observed workbook formulas, schemas, range limits, and validation
+gates, see [lloyds-supplementary-for-llm.md](lloyds-supplementary-for-llm.md).
+It records current implementation defects as well as mechanics; it is not an
+approved reporting methodology.
+
+See the repository [calculation discrepancy register](../../docs/calculation-discrepancies.md)
+for the exact evidence and owner decisions.
 
 ## Instructions from the 2026 email
 
@@ -24,7 +32,7 @@ The email dated 22 January 2026 gives the following source instructions:
 | RoW/global country-peril aggregates | `Weather`; use proxy exposures where required |
 | South Africa earthquake by CRESTA | `Quake` |
 | California wildfire by county | Weather exposure, followed by review |
-| Europe/Brussels earthquake and flood by CRESTA | `EU exposure - S33` |
+| Europe/Brussels earthquake and flood by CRESTA | `EU exposure - weather & quake` (not directly loadable) |
 | Canada climate reporting | `Weather` |
 | OFSI Canada earthquake | `Quake` |
 
@@ -37,6 +45,18 @@ The email also says wildfire is not monitored separately and the proxy/PML requi
 **Workbook:** `lloyds/workbooks/UKEU - Supplementary Info - RDL - Jan26 - Workings - ROW.xlsx`
 
 **Purpose:** produce country/peril exposure totals on `3. RoW Exposure Monitoring` for reviewed transfer to the Lloyd's template.
+
+### Current blocker
+
+Do not use the current RoW report for a USD handoff until the owner approves
+the source column and report unit. Its column M formula is `TSI_NET * scale
+factor` (source currency), while the report is labelled USD; the USD-net column
+is K. The current sources end at row 4,988, exactly matching the four pivot
+sources, but a larger future load would be omitted unless those fixed ranges
+are changed. The scale-factor sheet contains only a note, not an approved mapping.
+The identical cached country totals across the four perils also require explicit
+proxy approval. The procedure below is therefore a loading/review procedure,
+not approval to produce a final return.
 
 The workbook contains `UKEU Exposure scale factors`, four peril-specific extract sheets, a checked-in SQL text sheet, and the final report sheet. The four input sheets are:
 
@@ -55,12 +75,17 @@ Each extract sheet expects the same SQL-shaped columns in A:K: portfolio, reclas
 4. On each extract sheet, clear only the old source rows in A:K below row 1. Do not clear the headers, scale factors, formulas, or pivots to the right.
 5. Paste the matching extract into A:K, preserving the column order shown by row 1.
 6. Populate or confirm the approved scale factor in column L for every pasted row, then fill the column M formula through the full source range.
-7. Use **Data > Refresh All** and wait for the extract pivots to finish refreshing.
+7. Inspect connections and each pivot source first. Resize/replace every fixed
+   source range to include exactly the new rows, then refresh only approved
+   pivots; do not use **Data > Refresh All** against stale links.
 8. Review `3. RoW Exposure Monitoring` by country and peril, then reconcile each report total to its refreshed extract pivot before handoff.
 
 The checked-in RoW SQL is not a complete four-peril producer. It is fixed to `PERIL = 3` and `POLICYTYPE = 3`, while the workbook requires distinct EQ, FR, FL, and WS inputs. Do not reuse that one result across all four sheets. Preserve the exact query or parameter changes used for each extract.
 
-The current column M formula multiplies `TSI_NET` by the row scale factor even though its header says `TSI_USD_Scaled`. Confirm the input currency and report units rather than relying on the header alone.
+The current column M formula multiplies `TSI_NET` by the row scale factor even
+though its header says `TSI_USD_Scaled`. Stop until the approved calculation
+states whether it uses source-currency `TSI_NET` or USD-net `TSI_USD_NET`, and
+the report label and pivot measure agree. Do not rely on the header alone.
 
 ## South Africa earthquake
 
@@ -70,16 +95,27 @@ The current column M formula multiplies `TSI_NET` by the row scale factor even t
 
 `SouthAfrica_Aggs.sql` returns the 18 source columns expected in `Core data!A:R`. It filters the named January 2026 EDM to `PERIL = 1`, `POLICYTYPE = 1`, South Africa, and portfolios matching S33/3624. In the workbook, column S holds the row scale factor, column T calculates scaled TSI, and column U derives the two-digit zone from `Zone3Name`. The report aggregates those results with `SUMIF`.
 
+### Current blocker
+
+The report is labelled USD but column T currently calculates gross source
+currency `TSI * scale factor`, not net USD. Blank/space zones do not match a
+report row and are omitted. The current source ends within the row-53 `SUMIF`
+range, but a larger future load requires those fixed ranges to be extended.
+Stop until an owner selects the gross/net and currency measure, unmapped-zone
+amounts are quarantined/reconciled, and the range maintenance procedure is
+approved.
+
 ### Procedure
 
-1. Confirm whether the approved source is the S33 `Quake` tab or a fresh execution of `SouthAfrica_Aggs.sql`; retain evidence of the selected source.
+1. Select an approved SQL or transformation producer. The S33 `Quake` tab is not directly loadable because it lacks required CRESTA/schema fields; retain evidence of the selected producer.
 2. If SQL is used, verify the database named on line 1, run it in the approved SQL client, and record the server, EDM, codes, row count, and source total.
 3. Open the South Africa workbook and review `AUDIT_SUMMARY`, `Cat Class Mapping`, `Notes`, and `Fx` before loading data.
 4. Clear only the old source rows in `Core data!A:R` below row 1. Preserve columns S:U and all report formulas.
 5. Paste the 18 source columns into `Core data!A:R` in the existing header order.
 6. Populate or confirm the scale factor in column S, then fill formulas in T:U through every pasted row.
 7. Use **Ctrl+Alt+F9** to force a full recalculation.
-8. Review `05 South Africa EQ Aggs` and reconcile its zone totals to `Core data` before handoff.
+8. Review `05 South Africa EQ Aggs` and reconcile `report total + quarantined
+   unmapped-zone total` to the approved core measure before handoff.
 
 The workbook is labelled January 2026, but its report and FX labels require confirmation against the current cycle. The SQL-to-sheet match is structural; the workbook contains no run record proving that its cached rows came from the current SQL. Confirm the date, FX, units, and lineage before use.
 
@@ -90,6 +126,11 @@ The workbook is labelled January 2026, but its report and FX labels require conf
 **Purpose:** produce California wildfire exposure by county on `06 California Wildfire Aggs`.
 
 `FA_California_Aggs.sql` returns the 13 columns expected in `Core data!A:M`, ending in `TSI_USD_NET`. It filters the named January 2026 EDM to `PERIL = 4`, `POLICYTYPE = 4`, California, and portfolios matching S33/3624. Helper column N removes the word `County` from the source name, and the report sums column M by the normalized county.
+
+The current cached arithmetic reconciles, but execution remains blocked until
+the owner approves the wildfire source/proxy and resolves the report-date
+mismatch. Do not derive a county from the S33 workbook: it does not contain the
+required county field.
 
 ### Procedure
 
@@ -112,14 +153,27 @@ The report date does not match the January 2026 SQL source. The schema match doe
 
 The workbook contains `Core data EQ`, `Core data FL`, `Cat Class Mapping`, `Notes`, and `Fx`. Both core sheets expect source columns A:R. Column S holds the row scale factor, column T calculates scaled USD exposure, and column U applies `Fx!C7` to produce the EUR amount used by the report's CRESTA aggregation.
 
+### Current blocker
+
+Do not execute the EU procedure as a EUR calculation. The populated flood T
+formulas inconsistently reference source `TSI_NET` and USD-net columns, so the
+aggregate mixes currencies before applying `Fx!C7`. That rate is not the email's
+GBP/EUR 1.15 rate. An owner must approve one uniform source column, rate
+direction/effective date, every T/U formula, and treatment of unmapped CRESTA
+values before output is used. The report uses whole-column `SUMIFS`; formula
+coverage—not a fixed report range—is the load control.
+
 ### Procedure
 
-1. Prepare and retain separately approved earthquake and flood extracts from `EU exposure - S33` or another documented source.
+1. Prepare and retain separately approved earthquake and flood extracts from an approved transformation of `EU exposure - weather & quake` or another documented source. The received tab is not directly loadable.
 2. Record the producer, reporting date, peril, row count, source total, currency basis, and FX for both extracts. There is no matching SQL or Python producer checked in.
 3. Open the EU workbook and review `AUDIT_SUMMARY`, `Cat Class Mapping`, `Notes`, and `Fx` before loading data.
 4. Clear only the old source rows in A:R below row 1 on `Core data EQ` and `Core data FL`. Preserve columns S:U and all report formulas.
 5. Paste the matching 18-column extract into each sheet in the existing header order.
-6. Populate or confirm the scale factor in column S, then fill formulas in T:U through every pasted row on both sheets.
+6. After the owner has supplied the approved formula pattern, populate or
+   confirm the scale factor in column S and fill formulas in T:U through every
+   pasted row on both sheets. Audit that no populated formula departs from that
+   pattern; do not fill down the current flood formulas.
 7. Use **Ctrl+Alt+F9** to force a full recalculation.
 8. Review earthquake and flood results on `11 LIC EU CRESTA` and reconcile each peril total to its core sheet before handoff.
 
@@ -127,10 +181,15 @@ The report date does not match the January 2026 cycle. `Fx!C7` is `1.25 / 1.21 =
 
 ## Received S33 workbook
 
-`Supplementary Info UKEU S33.xlsx` is source evidence rather than a final return template. It contains event/location exposure on `Weather` and `Quake` plus an isolated EU view. Its shared formula calculates:
+`Supplementary Info UKEU S33.xlsx` is source evidence rather than a final return
+template. Its EU tab is named `EU exposure - weather & quake`, not `EU exposure
+- S33`. Its 27-column event/location tabs do not supply the SQL-shaped
+portfolio, county, CRESTA, or separate EU earthquake/flood fields required by
+the calculation workbooks. Do not paste it directly or infer those fields; use
+an approved transformation producer. Its shared formula calculates:
 
 ```text
-HIS net QS = Share Insured Value USD * (1 - RI Cession PC)
+HIS net QS = Share Insured Value USD * (1 - RI Cession PC / 100)
 ```
 
 Keep the workbook and companion message together to preserve source instructions and provenance.

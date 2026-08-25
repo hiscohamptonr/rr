@@ -20,14 +20,44 @@ Global Exposures intersects EDM locations with configured event polygons, applie
 
 The script does not read input spreadsheets or flat files. Database defaults are defined in `RunConfig` in `globalexposures/exposures.py`; approve and record them for every run.
 
-The EDM query applies the selected peril to both `loccvg.PERIL` and `policy.POLICYTYPE`. It also applies Fine Art QS/SRP factors from portfolio-name patterns. Review the annual schema, code meanings, portfolio selection, and reinsurance factors before production use.
+The EDM query applies the selected peril to both `loccvg.PERIL` and `policy.POLICYTYPE`. Its current Fine Art QS/SRP factors match `PORTNUM` with SQL `LIKE` patterns (where `_` is a wildcard), not `PORTNAME`. Review the annual schema, code meanings, portfolio selection, and reinsurance factors before production use.
+
+For the current code's exact joins, calculations, spatial rules, status
+semantics, and machine-checkable controls, see
+[global-exposures-for-llm.md](global-exposures-for-llm.md). It documents
+observed implementation, not approval of its calculation logic.
+
+See the repository [calculation discrepancy register](../../docs/calculation-discrepancies.md)
+for the exact evidence and owner decisions.
+
+## Current production blockers
+
+Do **not** treat a successful command as an approved result. Escalate before a
+production run until the owner has approved or corrected these observed
+behaviours:
+
+- the code multiplies location TIV by `MAX(BLANLIMAMT)` per account, treating a
+  field named as a monetary limit as a factor, and defaults a missing policy
+  match to `1`;
+- unfiltered portfolio membership can duplicate locations; the saved
+  `edm_exposures.csv` is already post-join and cannot prove that this did not
+  happen;
+- `--allow-missing-pml` can report success while aggregate loss totals turn
+  unknown PML loss into zero; and
+- empty extracts, unusable coordinates, no polygons, or no impacts can exit
+  successfully without proving an approved zero result.
+
+Until code controls exist, use a new empty output directory for each validation
+run, do not use `--allow-missing-pml`, retain pre/post-join controls produced
+outside the script, and treat every non-success event, warning, zero result, or
+missing PML as a stop condition.
 
 ## Install and inspect
 
 From the repository root:
 
 ```bash
-uv sync --project globalexposures
+uv sync --project globalexposures --locked
 uv run --project globalexposures python globalexposures/exposures.py --help
 ```
 
@@ -45,7 +75,7 @@ Run every configured event:
 
 ```bash
 uv run --project globalexposures python globalexposures/exposures.py \
-  --output-dir global_exposures_outputs
+  --output-dir '<new-run-specific-directory>'
 ```
 
 Run one event or override controlled inputs:
@@ -55,16 +85,27 @@ uv run --project globalexposures python globalexposures/exposures.py \
   --event-id 123 \
   --peril 4 \
   --portnum PORTFOLIO_NUMBER \
-  --output-dir global_exposures_outputs
+  --output-dir '<new-run-specific-directory>'
 ```
 
-Use `--all-events` to override a single-event default. Use `--allow-missing-pml` only when the run owner has approved incomplete polygon PML data; the default is to fail the affected event.
+Use `--all-events` to override a single-event default. Do not use
+`--allow-missing-pml` in a production calculation: the current aggregation can
+turn unknown PML losses into zero while retaining a success status. The default
+is to fail the affected event.
 
-The script uses trusted SQL Server connections. It exits with status `1` for a pipeline-level failure and status `2` when one or more selected events fail. A run with event failures is not complete merely because some CSVs were written.
+The script uses integrated SQL Server authentication. Confirm its ODBC driver
+and certificate-trust settings against the approved connection policy. It exits
+with status `1` for a pipeline-level failure and status `2` when one or more
+selected events fail. A run with event failures is not complete merely because
+some CSVs were written.
 
 ## Input and refresh
 
-There is nothing to paste into Excel. The database queries are the input, and rerunning the controlled command is the refresh process. A selected run rewrites its output pack, so preserve reviewed prior outputs separately before rerunning.
+There is nothing to paste into Excel. The database queries are the input, and
+rerunning the controlled command is the refresh process. A selected run
+overwrites files individually and is not an atomic publication. Use a new
+empty, run-specific directory for every run; do not regard a reused directory
+as a coherent output pack.
 
 ## Output pack
 
@@ -80,7 +121,10 @@ The default folder is `global_exposures_outputs/`. Output names use `all_events`
 | `*_location_breakout.csv` | Location-level totals |
 | `edm_exposures.csv` | EDM exposure extract used by the run |
 
-Start with `*_summary.csv` and `*_run_log.csv`. Investigate every error-log row, then reconcile account and location outputs to the preserved EDM extract before use.
+Start with `*_summary.csv` and `*_run_log.csv`. The current summary contains
+statuses and row counts, not final monetary totals. Investigate every error-log
+row and every zero/no-polygon/no-impact result, then reconcile account and
+location outputs to independently preserved pre-join EDM controls before use.
 
 Preserve the complete output pack with the exact script revision, database identities, CLI arguments, event selection, row counts, totals, operator, reviewer, and reconciliation evidence.
 
@@ -90,6 +134,14 @@ Preserve the complete output pack with the exact script revision, database ident
 - Confirm polygon point ordering, polygon validity, location coordinates, and the WGS84 CRS assumption.
 - Review EDM joins for row multiplication and unmatched locations/accounts/policies.
 - Reapprove `_QS`/`_SRP` name matching and factors whenever terms or portfolio naming changes.
-- Reconcile the EDM extract to location rows, location breakouts, account totals, and final summary totals.
+- Reconcile independently preserved pre-join EDM controls to location rows,
+  location breakouts, and account totals; the current summary has no monetary
+  totals to reconcile.
+- Require approved zero-impact evidence for an empty extract, no usable
+  coordinates, no polygons, or no impacted exposures; these states are not
+  inherently successful outcomes.
+- Treat overlapping polygons, boundary locations, duplicate polygon/PML keys,
+  and repaired geometries as owner decisions. The current code retains one
+  intersecting polygon, preferring highest PML and then lowest polygon ID.
 - Confirm failed events are absent or explicitly approved; do not combine partial output with a successful prior run.
 - Keep database and event inputs, generated outputs, and review evidence together as one run pack.

@@ -11,16 +11,17 @@ Both processes use `bscr/BSCR_UKEU.py`, but they produce different files and wor
 
 | Process | Script output | Paste into | Refresh | Final calculation output |
 |---|---|---|---|---|
-| PRA | PRA raw and aggregate CSVs | `PRA_BSCR_Aggs.xlsx` input sheets | Excel **Refresh All** | `pivot_eq` or `pivot_allperil` |
-| BSCR | `bscr-output.csv` | BSCR workings `Sheet1!A:G` | Excel **Refresh All** | `piv`, then HIC Schedule X |
+| PRA | PRA raw and aggregate CSVs | `PRA_BSCR_Aggs.xlsx` input sheets | Validate table/pivot sources, then recalculate approved pivots | Calculation pivots; final PRA template is external |
+| BSCR | `bscr-output.csv` | BSCR workings `Sheet1!A:G` | Rebuild the static `output` bridge, then refresh `piv` | Reviewed inputs for specified HIC cells; not all Schedule X content |
 
-Use the individual pages for the commands and exact paste ranges.
+Use the individual pages for commands, exact paste ranges, and stop conditions.
+Do not use this summary as a refresh procedure.
 
 ## Relationship between the routes
 
 `pra/workbooks/PRA_BSCR_Aggs.xlsx` contains PRA pivots and legacy BSCR earthquake calculation panels. Those BSCR panels overlap the separate Python-to-BSCR-workings route; neither automatically supersedes the other. Reconcile both routes and obtain return-owner approval before selecting final BSCR values.
 
-The current Python PRA raw/aggregate outputs are regeneration candidates. They do not by themselves prove how the checked-in January pivot tables were populated. The earthquake route has a documented `2/2` command and control total; the exact all-peril producer remains unconfirmed.
+The current Python PRA raw/aggregate outputs are regeneration candidates. They do not by themselves prove how the checked-in January pivot tables were populated. The earthquake route has a documented `2/2` command and control total; the exact all-peril producer remains unconfirmed. PRA `2/2` and BSCR `1/1` are unlike scopes and must not be compared or selected between until their peril, geography, retention, FX, and unit bases are aligned and approved.
 
 ## Shared operating sequence
 

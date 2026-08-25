@@ -13,7 +13,18 @@
 
 The current Python route produces controlled regeneration candidates. The workbook also contains a legacy SQL route, and `pra/sql/aggs-from-edm.sql` matches that embedded query family. Neither route proves how the checked-in cached tables were populated because no prior run record is embedded in the workbook.
 
-The legacy workbook route records `HISCO_UKEU_01JAN26_010126_ROLLUP_ByLoB_GC_v25`, while the Python script currently defaults to `HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM`. Select the approved database explicitly and record it; do not treat either hard-coded name as approval.
+For exact CSV contracts, table/pivot identities, formula behaviour, mapping
+checks, and machine-verifiable gates, see [pra-for-llm.md](pra-for-llm.md).
+It records current workbook behaviour, not an approved calculation change.
+
+See the repository [calculation discrepancy register](../../docs/calculation-discrepancies.md)
+for the exact evidence and owner decisions.
+
+The legacy route is reported externally as
+`HISCO_UKEU_01JAN26_010126_ROLLUP_ByLoB_GC_v25`, while the Python script
+currently defaults to `HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM`.
+The workbook itself does not evidence the former database. Select the approved
+database explicitly and record it; do not treat either name as approval.
 
 ## Workbook structure
 
@@ -44,47 +55,59 @@ The January SQL does **not** subtract the deductible from the amount and does **
 
 The PRA input-table formulas derive:
 
-- Fine Art classification from `uwritrname`;
+- Fine Art classification when `userid1` contains `_FA_`;
 - country display and US country/state labels;
 - PRA region from `region_mappings`;
 - CDS class from `cds_mapping`; and
 - `Agg_USD = pml * 1.25`.
 
-The `1.25` factor belongs to the workbook calculation. Confirm its currency basis and approval for the cycle before relying on the USD result.
+The `1.25` factor belongs to the workbook calculation, but the checked-in PRA
+pivots sum `pml`, not `Agg_USD`. Confirm the intended pivot value field and
+currency before relying on any USD-labelled result; the factor alone does not
+make existing pivot output USD.
 
 ## Run earthquake
 
 From the repository root:
 
 ```bash
-uv sync
+uv sync --locked
 uv run python bscr/BSCR_UKEU.py \
   --server '<approved-server>' \
   --database '<approved-edm>' \
   --peril 2 \
   --policy-type 2 \
-  --output outputs/bscr-2-2-control.csv \
-  --source-output outputs/bscr-2-2-source.csv \
-  --pra-raw-output outputs/pra-eq-raw.csv \
-  --pra-aggregate-output outputs/pra-eq-aggregate.csv
+  --output '<new-empty-run-directory>/bscr-2-2-control.csv' \
+  --source-output '<new-empty-run-directory>/bscr-2-2-source.csv' \
+  --pra-raw-output '<new-empty-run-directory>/pra-eq-raw.csv' \
+  --pra-aggregate-output '<new-empty-run-directory>/pra-eq-aggregate.csv'
 ```
 
-Retain all four CSVs with the server, database, codes, script revision, execution date, operator, row counts, and totals. The BSCR-shaped files are controls for the same selected source; the two PRA files are the workbook inputs.
+Retain all four CSVs with the server, database, codes, script revision, execution date, operator, row counts, and totals. Use a new empty run directory: files are written sequentially, so stop if the command fails or any expected file is missing. The BSCR-shaped files are scope/context controls for the selected parameters; Python reads PRA and BSCR queries separately, so they are not mechanically equivalent amount controls or a common snapshot. The two PRA files are the workbook inputs.
 
 ## Load earthquake data
 
 1. Open a controlled copy of `pra/workbooks/PRA_BSCR_Aggs.xlsx`.
 2. Record the current formulas, table ranges, pivot sources, calculation mode, mappings, and pre-refresh totals.
 3. Clear only the previous input rows in `raw_data_for_bscr_splits_eq!A:G`; preserve row 1, formulas H:P, panels to the right, tables, and formatting. Column Q is currently unused.
-4. Paste `pra-eq-raw.csv` into `raw_data_for_bscr_splits_eq!A:G` in the existing header order.
+4. Validate the CSV header, then paste **data rows only** into
+   `raw_data_for_bscr_splits_eq!A2:G...` in the existing order.
 5. Fill formulas H:P through the last pasted row and check for blanks or Excel errors.
 6. Clear only the prior aggregate input rows in `pivot_eq!A:E`; preserve formulas F:M and the pivot areas.
-7. Paste `pra-eq-aggregate.csv` into `pivot_eq!A:E` and fill formulas F:M through the last pasted row.
+7. Validate the CSV header, then paste **data rows only** into `pivot_eq!A2:E...`
+   and fill formulas F:M through the last pasted row. Resize `Table2` and
+   `Table32` to the exact loaded ranges; do not leave residual blank table rows
+   or data outside a table.
 8. Reconcile raw `pml`, grouped aggregate `pml`, and the completed input-table totals before refreshing pivots.
 
 ## Refresh earthquake pivots
 
-The checked-in `pivot_eq` pivots currently point at the all-peril cache. In Excel, change every pivot on `pivot_eq` to use `Table32`, confirm that the table covers the complete earthquake input, then refresh the intended pivots.
+The checked-in `pivot_eq` pivots currently point at the all-peril cache. In
+Excel, change every pivot on `pivot_eq` to use `Table32`, confirm that the table
+covers the complete earthquake input, then refresh the intended pivots. Do not
+copy an earthquake result until every `pivot_eq` pivot resolves to `Table32`,
+every `pivot_allperil` pivot resolves to `Table3`, and the displayed earthquake
+grand total reconciles to the approved `Table32` total.
 
 Use **Data > Refresh All** only after checking that it will not update unapproved external connections. Recalculate the workbook, check for `#REF!`, `#N/A`, and `#VALUE!`, and compare the before/after pivot values.
 
@@ -94,7 +117,11 @@ The checked-in January earthquake source total is `233,586,155,482.80`. Record i
 
 The PRA earthquake results are on `pivot_eq`. Reconcile the source input through formulas and pivots, then record the exact output range used for the external PRA template.
 
-The `raw_data_for_bscr_splits_eq` sheet also identifies HIG, `_QS`, `_SRP`, North American hurricane, and North American earthquake rows. Panels to the right calculate values intended for a BSCR Schedule X handoff. `_QS` uses `50%`; `_SRP` uses `33%` in this workbook.
+The `raw_data_for_bscr_splits_eq` sheet identifies HIG, `_QS`, `_SRP`, and
+North American hurricane rows. Its `is_na_eq` column is currently empty, so it
+does **not** identify North American earthquake rows or calculate that panel.
+Panels to the right are incomplete BSCR aids, not a final handoff. `_QS` uses
+`50%`; `_SRP` uses `33%` in this workbook.
 
 Those BSCR panels overlap the separate Python and BSCR-workings route. Neither automatically supersedes the other. Reconcile and obtain owner approval before selecting final BSCR values.
 
@@ -108,10 +135,10 @@ uv run python bscr/BSCR_UKEU.py \
   --database '<approved-edm>' \
   --peril 1 \
   --policy-type 1 \
-  --output outputs/bscr-1-1-control.csv \
-  --source-output outputs/bscr-1-1-source.csv \
-  --pra-raw-output outputs/pra-allperil-raw-candidate.csv \
-  --pra-aggregate-output outputs/pra-allperil-candidate.csv
+  --output '<new-empty-run-directory>/bscr-1-1-control.csv' \
+  --source-output '<new-empty-run-directory>/bscr-1-1-source.csv' \
+  --pra-raw-output '<new-empty-run-directory>/pra-allperil-raw-candidate.csv' \
+  --pra-aggregate-output '<new-empty-run-directory>/pra-allperil-candidate.csv'
 ```
 
 Do not load this result merely because the command succeeds. Confirm that codes `1/1` represent the approved all-peril scope, compare row counts and classifications, and reconcile the aggregate candidate to the checked-in source total `255,773,631,164.60`.
@@ -119,8 +146,8 @@ Do not load this result merely because the command succeeds. Confirm that codes 
 Only after that reconciliation and owner approval:
 
 1. clear the old input rows in `pivot_allperil!A:E` without disturbing formulas or pivots;
-2. paste `pra-allperil-candidate.csv` into A:E;
-3. fill formulas F:M through the complete range;
+2. validate its header and paste data rows only into `pivot_allperil!A2:E...`;
+3. resize `Table3` to the exact range and fill formulas F:M through it;
 4. confirm each pivot points to the intended all-peril table; and
 5. refresh, recalculate, and reconcile the output.
 
@@ -130,7 +157,10 @@ Otherwise stop and preserve the existing all-peril table as evidence.
 
 - Record how both aggregate tables were populated and retain their producer outputs.
 - Confirm the `1.25` factor and the versions of `region_mappings`, `cds_mapping`, and `rms_geog`.
-- Resolve the `_SRP` difference between `33%` here, `0.3333` in Python, and `0.33333` in supplementary SQL.
+- Resolve the `_SRP` difference between `33%` here, `0.3333` in Python, and `0.33333` in supplementary SQL, and the materially different NAHU geography logic.
+- Stop for any populated-row CDS or PRA-region mapping error. The checked-in
+  baseline contains CDS `#N/A` exposure; helper-column errors that are known to
+  be bypassed must be separately counted and approved.
 - Reconcile raw input, grouped input, formulas, pivots, and final return values.
 - Preserve formulas, table definitions, pivot sources, validation, formatting, and non-input cells.
 - Do not use cached pivot similarity as proof of current lineage or approval.

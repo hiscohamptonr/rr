@@ -4,7 +4,10 @@ Use these controls for every process in this handbook. They do not replace curre
 
 ## Run record
 
-Complete the run record before execution:
+Initialize and approve the run record before execution; complete execution,
+review, and sign-off fields afterwards. Mark genuinely inapplicable fields
+`N/A` with a rationale rather than fabricating workbook/FX/manual-handoff
+evidence for a process that does not use them.
 
 | Field | Required evidence |
 |---|---|
@@ -16,6 +19,7 @@ Complete the run record before execution:
 | Assumptions | FX basis, retention factors, mappings, scale factors, and manual adjustments |
 | Inputs | Source workbook/query result paths, tabs/ranges, row counts, totals, units, and currency |
 | Destination | Output folder and controlled calculation/final workbook paths |
+| Execution evidence | Exit status, stdout/stderr, warnings/errors, and expected-versus-produced artifact manifest |
 
 Never put credentials, tokens, or connection secrets in the run record or source control.
 
@@ -27,6 +31,9 @@ Never put credentials, tokens, or connection secrets in the run record or source
 - Confirm source and target currency, FX date/basis, and output unit.
 - Confirm `_QS`, `_SRP`, and other retention or proxy decisions against current approved terms.
 - Keep source workbooks and instruction emails together so provenance and interpretation are retained.
+- Use an approved restricted location for source data, extracts, workbooks, and
+  correspondence. Do not commit raw regulated data, run outputs, or credentials
+  unless retention and access controls explicitly permit it.
 
 ## Pre-run workbook review
 
@@ -68,12 +75,12 @@ At minimum, reconcile:
 
 - extracted gross totals to an independently produced EDM/RiskLink or approved source control;
 - gross-to-net movement by retention category;
-- source-currency totals to converted totals using the approved FX basis;
+- source-currency totals to converted totals using the approved FX basis, where applicable;
 - detail totals to entity, geography, event, peril, and report totals;
 - raw output to grouped output;
 - SQL/CSV output to the values loaded into Excel;
-- workbook input ranges through formulas and pivots to report outputs;
-- reviewed outputs to every manually populated final cell; and
+- workbook input ranges through formulas and pivots to report outputs, where applicable;
+- reviewed outputs to every manually populated final cell, where applicable; and
 - final submitted values to the reviewed workbook or output pack.
 
 Historical notes that an earlier result was close to a model output are historical evidence only. This repository defines no current acceptance tolerance. Agree, document, and apply the reporting-cycle tolerance.
@@ -103,7 +110,8 @@ A workbook's presence in the repository does not establish approval. Compare it 
 
 ## Completion evidence
 
-Archive together:
+Archive together, in a new run-specific location (never by overwriting an
+earlier run):
 
 - current instructions and blank/controlled template;
 - complete run record and repository revision;
@@ -114,6 +122,11 @@ Archive together:
 - approved mappings, scale factors, proxy decisions, and manual adjustments;
 - reviewer sign-off; and
 - final output/submission evidence, subject to the applicable records policy.
+
+Record a stable source snapshot or approved change window when more than one
+query/read is required. Also retain the executed-file hash or clean-tree/diff,
+lockfile/environment and driver version, workbook application version, and
+file checksums where available.
 
 ## Stop conditions
 
