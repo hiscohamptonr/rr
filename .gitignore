@@ -10,14 +10,6 @@ wheels/
 # Virtual environments
 .venv
 
-__marimo__/**
-__marimo__**
-
 *.json
 *.sqlite
-
-
-*.json
 *.csv
-*.sqlite
-

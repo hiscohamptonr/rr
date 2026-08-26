@@ -1,20 +1,16 @@
-"""Global Exposures event-loss runner.
+"""Run geospatial event-loss calculations and write the CSV output pack.
 
-Two supported modes
--------------------
-Notebook:
-    marimo edit global_exposures_event_runner.py
+External data sources:
+- The ``GlobalExposures`` Microsoft SQL Server database (by default on
+  ``PR0603-41001-00``): ``data.Events``, ``data.ShapeFiles``, and ``data.PML``.
+- The configured EDM Microsoft SQL Server database (by default
+  ``HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM`` on
+  ``prod-lmrmsinsurance-db\\LMRMSinsurance``): ``dbo.loc``, ``dbo.loccvg``,
+  ``dbo.policy``, ``dbo.accgrp``, ``dbo.portacct``, and ``dbo.portinfo``.
 
-Batch / fire-and-forget:
-    python global_exposures_event_runner.py
-
-Optional batch overrides:
-    python global_exposures_event_runner.py --event-id 106
-    python global_exposures_event_runner.py --all-events
-    python global_exposures_event_runner.py --portnum HIC_HH_UK
-
-By default the Python command runs every event, writes all outputs, prints a
-summary, and exits non-zero if any event fails.
+The pipeline consumes no input files or other external data feeds. Run all
+configured events with ``python globalexposures/exposures.py`` or select one
+with ``--event-id``.
 """
 
 from __future__ import annotations
@@ -25,20 +21,13 @@ from pathlib import Path
 from urllib.parse import quote_plus
 
 import geopandas as gpd
-import marimo
 import pandas as pd
 import sqlalchemy as sa
 from shapely.geometry import Point, Polygon
 from sqlalchemy.exc import SQLAlchemyError
 
 
-__generated_with = "0.23.4"
-app = marimo.App(width="full")
-
-
-# =============================================================================
-# RUN CONFIG: edit here for notebook use. CLI arguments override these values.
-# =============================================================================
+# Default run configuration; CLI arguments override these values.
 @dataclass(frozen=True)
 class RunConfig:
     global_exposures_server: str = "PR0603-41001-00"
@@ -139,10 +128,14 @@ def select_events(events: pd.DataFrame, event_id_to_run: int | None) -> pd.DataF
     if event_id_to_run is None:
         return events[["EventID", "EventName"]].drop_duplicates().copy()
 
-    selected = events.loc[
-        events["EventID"] == int(event_id_to_run),
-        ["EventID", "EventName"],
-    ].drop_duplicates().copy()
+    selected = (
+        events.loc[
+            events["EventID"] == int(event_id_to_run),
+            ["EventID", "EventName"],
+        ]
+        .drop_duplicates()
+        .copy()
+    )
     if selected.empty:
         raise ValueError(
             f"EVENT_ID_TO_RUN={event_id_to_run} was not found in "
@@ -271,17 +264,16 @@ def read_edm_exposures_cte(
 
 
 def exposures_to_points(exposures: pd.DataFrame, crs: str) -> gpd.GeoDataFrame:
-    required = {
-        "LOCID", "LATITUDE", "LONGITUDE", "GroundUpTIV", "PolicyAdjustedTIV"
-    }
+    required = {"LOCID", "LATITUDE", "LONGITUDE", "GroundUpTIV", "PolicyAdjustedTIV"}
     missing = required.difference(exposures.columns)
     if missing:
-        raise ValueError(f"Exposure data is missing required columns: {sorted(missing)}")
+        raise ValueError(
+            f"Exposure data is missing required columns: {sorted(missing)}"
+        )
 
     df = exposures.dropna(subset=["LATITUDE", "LONGITUDE"]).copy()
     df = df[
-        df["LATITUDE"].between(-90, 90)
-        & df["LONGITUDE"].between(-180, 180)
+        df["LATITUDE"].between(-90, 90) & df["LONGITUDE"].between(-180, 180)
     ].reset_index(drop=True)
     df["_ExposureRowID"] = df.index.astype("int64")
     geometry = [
@@ -300,9 +292,7 @@ def load_event_polygons(
     shape_points = read_global_exposure_shape_points(engine, event_id)
     polygons = shape_points_to_polygons(shape_points, crs)
     pmls = read_global_exposure_pmls(engine, event_id)
-    polygons_with_pml = polygons.merge(
-        pmls, on=["EventID", "PolygonID"], how="left"
-    )
+    polygons_with_pml = polygons.merge(pmls, on=["EventID", "PolygonID"], how="left")
     if fail_on_missing_pml and not polygons_with_pml.empty:
         missing = polygons_with_pml["PML"].isna()
         if missing.any():
@@ -350,8 +340,14 @@ def build_account_breakdown(location_rows: pd.DataFrame) -> pd.DataFrame:
     if location_rows.empty:
         return pd.DataFrame()
     group_cols = [
-        "EventID", "EventName", "SelectedPeril", "CEDANTID", "PORTACCTID",
-        "PORTNAME", "PORTNUM", "CurrencyCode",
+        "EventID",
+        "EventName",
+        "SelectedPeril",
+        "CEDANTID",
+        "PORTACCTID",
+        "PORTNAME",
+        "PORTNUM",
+        "CurrencyCode",
     ]
     group_cols = [c for c in group_cols if c in location_rows.columns]
     return (
@@ -376,9 +372,17 @@ def build_location_breakout(location_rows: pd.DataFrame) -> pd.DataFrame:
     if location_rows.empty:
         return pd.DataFrame()
     group_cols = [
-        "EventID", "EventName", "SelectedPeril", "LOCID", "LATITUDE",
-        "LONGITUDE", "CountryCode", "CurrencyCode", "PolygonID",
-        "SourcePML", "PML",
+        "EventID",
+        "EventName",
+        "SelectedPeril",
+        "LOCID",
+        "LATITUDE",
+        "LONGITUDE",
+        "CountryCode",
+        "CurrencyCode",
+        "PolygonID",
+        "SourcePML",
+        "PML",
     ]
     group_cols = [c for c in group_cols if c in location_rows.columns]
     return (
@@ -405,20 +409,28 @@ def build_run_summary(
     run_log: pd.DataFrame,
     location_rows: pd.DataFrame,
 ) -> pd.DataFrame:
-    counts = run_log["Status"].value_counts() if not run_log.empty else pd.Series(dtype=int)
+    counts = (
+        run_log["Status"].value_counts() if not run_log.empty else pd.Series(dtype=int)
+    )
     return pd.DataFrame(
         {
             "metric": [
-                "overall_status", "events_selected", "events_successful",
-                "events_no_polygons", "events_no_impacted_exposures",
-                "events_failed", "impacted_exposure_rows",
+                "overall_status",
+                "events_selected",
+                "events_successful",
+                "events_no_polygons",
+                "events_no_impacted_exposures",
+                "events_failed",
+                "impacted_exposure_rows",
             ],
             "value": [
                 "Complete with errors" if counts.get("Error", 0) else "Complete",
-                len(selected_events), counts.get("Success", 0),
+                len(selected_events),
+                counts.get("Success", 0),
                 counts.get("No polygons", 0),
                 counts.get("No impacted exposures", 0),
-                counts.get("Error", 0), len(location_rows),
+                counts.get("Error", 0),
+                len(location_rows),
             ],
         }
     )
@@ -477,8 +489,12 @@ def run_pipeline(config: RunConfig = CONFIG) -> dict[str, object]:
                 )
                 if shape_points.empty or polygons.empty:
                     run_log_rows.append(
-                        {"EventID": event_id, "EventName": event_name,
-                         "Status": "No polygons", "Rows": 0}
+                        {
+                            "EventID": event_id,
+                            "EventName": event_name,
+                            "Status": "No polygons",
+                            "Rows": 0,
+                        }
                     )
                     continue
 
@@ -487,36 +503,54 @@ def run_pipeline(config: RunConfig = CONFIG) -> dict[str, object]:
                 )
                 if impacted.empty:
                     run_log_rows.append(
-                        {"EventID": event_id, "EventName": event_name,
-                         "Status": "No impacted exposures", "Rows": 0}
+                        {
+                            "EventID": event_id,
+                            "EventName": event_name,
+                            "Status": "No impacted exposures",
+                            "Rows": 0,
+                        }
                     )
                     continue
 
                 impacted["EventName"] = event_name
                 impacted["SelectedPeril"] = impacted["PERIL"]
-                all_location_rows.append(pd.DataFrame(impacted.drop(columns="geometry")))
-                run_log_rows.append(
-                    {"EventID": event_id, "EventName": event_name,
-                     "Status": "Success", "Rows": len(impacted)}
+                all_location_rows.append(
+                    pd.DataFrame(impacted.drop(columns="geometry"))
                 )
-            except Exception as exc:
+                run_log_rows.append(
+                    {
+                        "EventID": event_id,
+                        "EventName": event_name,
+                        "Status": "Success",
+                        "Rows": len(impacted),
+                    }
+                )
+            # Each event is an isolation boundary; retain any failure in the
+            # output pack and continue processing the remaining configured events.
+            except Exception as exc:  # noqa: BLE001
                 error_rows.append(
-                    {"EventID": event_id, "EventName": event_name,
-                     "Error": f"{type(exc).__name__}: {exc}"}
+                    {
+                        "EventID": event_id,
+                        "EventName": event_name,
+                        "Error": f"{type(exc).__name__}: {exc}",
+                    }
                 )
                 run_log_rows.append(
-                    {"EventID": event_id, "EventName": event_name,
-                     "Status": "Error", "Rows": 0}
+                    {
+                        "EventID": event_id,
+                        "EventName": event_name,
+                        "Status": "Error",
+                        "Rows": 0,
+                    }
                 )
 
         location_rows = (
             pd.concat(all_location_rows, ignore_index=True)
-            if all_location_rows else pd.DataFrame()
+            if all_location_rows
+            else pd.DataFrame()
         )
         run_log = pd.DataFrame(run_log_rows)
-        error_log = pd.DataFrame(
-            error_rows, columns=["EventID", "EventName", "Error"]
-        )
+        error_log = pd.DataFrame(error_rows, columns=["EventID", "EventName", "Error"])
         account_breakdown = build_account_breakdown(location_rows)
         location_breakout = build_location_breakout(location_rows)
         summary = build_run_summary(selected_events, run_log, location_rows)
@@ -564,68 +598,6 @@ def run_pipeline(config: RunConfig = CONFIG) -> dict[str, object]:
         edm_engine.dispose()
 
 
-@app.cell
-def _():
-    import marimo as mo
-    return (mo,)
-
-
-@app.cell
-def _(mo):
-    mo.md(
-        """
-        # Global Exposures event runner
-
-        **Notebook mode:** edit `CONFIG` near the top of the file, then press
-        **Run exposure events** below. `event_id_to_run=None` runs all events;
-        an integer runs only that event.
-
-        **Command-line mode:** `python global_exposures_event_runner.py`
-        runs all events, writes the complete output pack, then exits. Use
-        `--event-id 106` for one event.
-        """
-    )
-    return
-
-
-@app.cell
-def _(mo):
-    run_button = mo.ui.run_button(label="Run exposure events")
-    run_button
-    return (run_button,)
-
-
-@app.cell
-def _(mo, run_button):
-    mo.stop(not run_button.value, "Press the button to start the run.")
-    results = run_pipeline(CONFIG)
-    return (results,)
-
-
-@app.cell
-def _(results):
-    results["summary"]
-    return
-
-
-@app.cell
-def _(results):
-    results["run_log"]
-    return
-
-
-@app.cell
-def _(results):
-    results["error_log"]
-    return
-
-
-@app.cell
-def _(results):
-    results["paths"]
-    return
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run Global Exposures event losses and write the output pack."
@@ -648,15 +620,30 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def batch_main() -> int:
+def main() -> int:
     args = parse_args()
+    event_id_to_run = (
+        None
+        if args.all_events
+        else args.event_id
+        if args.event_id is not None
+        else CONFIG.event_id_to_run
+    )
     config = replace(
         CONFIG,
-        event_id_to_run=args.event_id,
-        portnum_filter=(args.portnum if args.portnum is not None else CONFIG.portnum_filter),
-        edm_peril_to_use=(args.peril if args.peril is not None else CONFIG.edm_peril_to_use),
-        output_dir=(args.output_dir if args.output_dir is not None else CONFIG.output_dir),
-        fail_on_missing_pml=(False if args.allow_missing_pml else CONFIG.fail_on_missing_pml),
+        event_id_to_run=event_id_to_run,
+        portnum_filter=(
+            args.portnum if args.portnum is not None else CONFIG.portnum_filter
+        ),
+        edm_peril_to_use=(
+            args.peril if args.peril is not None else CONFIG.edm_peril_to_use
+        ),
+        output_dir=(
+            args.output_dir if args.output_dir is not None else CONFIG.output_dir
+        ),
+        fail_on_missing_pml=(
+            False if args.allow_missing_pml else CONFIG.fail_on_missing_pml
+        ),
     )
 
     try:
@@ -678,4 +665,4 @@ def batch_main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(batch_main())
+    raise SystemExit(main())
