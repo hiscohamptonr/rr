@@ -28,9 +28,9 @@ process runbook: [PRA](runbooks/source/pra.md), [BSCR](runbooks/source/bscr.md),
 
 ## Technical documentation
 
-- [`docs/dataiku-aggs.md`](docs/dataiku-aggs.md) — current checked-in Dataiku
-  OED baseline at commit `d264675`: provisional uncapped exposure behavior,
-  not a final PRA, BSCR, or Lloyd's calculation.
+- [`dataiku/Dataiku-Aggs.sql`](dataiku/Dataiku-Aggs.sql) — the single canonical
+  provisional OED aggregation query, with policy-term, peril, participation,
+  Fine Art QS, and geography outputs. It is not a final regulatory calculation.
 - [`docs/calculation-discrepancies.md`](docs/calculation-discrepancies.md) —
   verified code/workbook discrepancies, their effects, and required owner
   decisions before production use.

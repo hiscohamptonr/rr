@@ -73,6 +73,10 @@ in a controlled copy.
 | LLOYD-010 | Medium | RoW has `#REF!` defined names; SA/California/EU retain external links and a `CRESTA` name resolving to `[1]Reference!#REF!`. | Workbooks violate their stated link/error gate and may update unavailable sources. | Identify output-relevant names/links and approve/remediate each. |
 
 ## Dataiku OED aggregates
+The entries below document the superseded uncapped baseline at commit
+`d264675` (`dataiku/Dataiku-Aggs.sql` before the current canonical query).
+Revalidate them against the canonical policy-terms query before using them as
+current defects.
 
 | ID | Severity | Verified evidence | Effect | Required owner decision |
 |---|---|---|---|---|

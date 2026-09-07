@@ -1,11 +1,12 @@
 # Dataiku OED aggregates — LLM implementation contract
 
-Use this document only to review or implement a **future** revision of
-`dataiku/Dataiku-Aggs.sql`. The checked-in SQL remains the current baseline
-described in [dataiku-aggs.md](dataiku-aggs.md). Do not claim that either
-version produces policy-capped PML or a final regulatory return.
+This document records the earlier **uncapped OED baseline contract**. The
+current canonical query is `dataiku/Dataiku-Aggs.sql`, which is a separate
+policy-terms/peril implementation and does not claim to satisfy every
+uncapped-baseline field below. Do not claim that either route produces a final
+regulatory return.
 
-## Current baseline facts
+## Historical baseline facts
 
 - Input is OEDIDs 42/44. Ground-up source TIV is
   `BuildingTIV + ContentsTIV + BITIV + OtherTIV`, with `TRY_CAST` and nulls
