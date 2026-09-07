@@ -521,8 +521,13 @@ complete_rows AS (
 
 /* Use canonical CountryCode in AggregationCountry to collapse source-label variants. */
 level_rows AS (
-    SELECT 'Aggs', 'COUNTRY', COALESCE(CountryCode, 'UNKNOWN'),
-        COALESCE(CountryCode, 'UNKNOWN'), NULL, NULL, NULL, rows.* FROM complete_rows AS rows
+    SELECT 'Aggs' AS UseCase, 'COUNTRY' AS AggregationLevel,
+        COALESCE(CountryCode, 'UNKNOWN') AS AggregationValue,
+        COALESCE(CountryCode, 'UNKNOWN') AS AggregationCountry,
+        CAST(NULL AS STRING) AS AggregationState,
+        CAST(NULL AS STRING) AS AggregationRegion,
+        CAST(NULL AS STRING) AS AggregationPostcode,
+        rows.* FROM complete_rows AS rows
 
     UNION ALL
     SELECT 'Aggs', 'STATE', CONCAT('US_', REGEXP_REPLACE(UPPER(StateValue), '[^A-Z0-9]+', '_')),
