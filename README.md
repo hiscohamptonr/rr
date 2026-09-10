@@ -1,56 +1,44 @@
-# January 2026 workflows
+# Regulatory returns
 
-## Generated reference runbooks
+## Start with your guide
 
-These are reference instructions, **not evidence of current approval**. Current
-regulator instructions, controlled templates, mappings, rates, databases, and
-owner decisions remain authoritative.
+These are the short, human-readable instructions. Each covers what you need,
+what to run, what to check and where the process stops.
 
-- `runbooks/docx/PRA-BSCR-Jan-2026.docx`
-- `runbooks/docx/Lloyds-Supplementary-Jan-2026.docx`
-- `runbooks/docx/Global-Exposures-Jan-2026.docx`
+| Process | Read online / in your editor | Open in Word |
+|---|---|---|
+| BSCR Schedule X | [BSCR guide](docs/bscr/runbook.md) | [PRA & BSCR](docs/generated/PRA-BSCR-Jan-2026.docx) |
+| PRA aggregates | [PRA guide](docs/pra/runbook.md) | [PRA & BSCR](docs/generated/PRA-BSCR-Jan-2026.docx) |
+| Lloyd's supplementary | [Lloyd's guide](docs/lloyds/runbook.md) | [Lloyd's](docs/generated/Lloyds-Supplementary-Jan-2026.docx) |
+| Global Exposures | [Global Exposures guide](docs/global-exposures/runbook.md) | [Global Exposures](docs/generated/Global-Exposures-Jan-2026.docx) |
+| Dataiku aggregation | [Dataiku guide](docs/dataiku/aggregation.md) | — |
 
-To regenerate them, edit `runbooks/source/`, ensure Pandoc is installed, then
-run `python3 tools/build_docx.py` from the repository root. This overwrites the
-files in `runbooks/docx/`.
+Before running anything, use the [short run checklist](docs/operating-controls.md).
+The guides describe the January 2026 implementation, not approval for a new
+reporting cycle. Each guide flags the decisions still needed for production.
+Dataiku is a separate provisional route, not a replacement for the returns.
 
-Read the [shared controls](runbooks/source/run-checks.md) before using a
-process runbook: [PRA](runbooks/source/pra.md), [BSCR](runbooks/source/bscr.md),
-[Lloyd's supplementary](runbooks/source/lloyds-supplementary.md), or
-[Global Exposures](runbooks/source/global-exposures.md).
+## Need more detail?
 
-## Prerequisites
+- **LLMs and technical reviewers:** start with [LLM instructions](docs/llm-instructions.md), then the process's technical reference.
+- **Something is blocked:** [decisions](docs/decisions.md) lists the answer or artifact needed and how to close the issue.
+- **Why is it blocked?** [calculation discrepancies](docs/calculation-discrepancies.md) contains the code and workbook evidence.
+- **Where do workbook values go?** The [BSCR](docs/bscr/handoff.md), [PRA](docs/pra/handoff.md) and [Lloyd's](docs/lloyds/handoff.md) handoff traces distinguish known internal paths from missing final-cell maps.
 
-- Python 3.13 and `uv`; use the checked-in lockfile (`uv sync --locked`).
-- Approved SQL Server/network access and the process-specific Microsoft ODBC
-  driver (18 for PRA/BSCR; 17 for Global Exposures).
-- Excel for workbook procedures and Pandoc only when regenerating DOCX files.
+You do not need to read the technical pack before browsing a human guide.
 
-## Technical documentation
+## Opening and updating the docs
 
-- [`docs/dataiku-aggs.md`](docs/dataiku-aggs.md) — current checked-in Dataiku
-  OED baseline at commit `d264675`: provisional uncapped exposure behavior,
-  not a final PRA, BSCR, or Lloyd's calculation.
-- [`docs/calculation-discrepancies.md`](docs/calculation-discrepancies.md) —
-  verified code/workbook discrepancies, their effects, and required owner
-  decisions before production use.
+Open `.docx` files in Word. For Markdown, open this folder in VS Code, select
+`README.md` and press **⌘⇧V** for a formatted preview.
 
-## File layout
+Markdown is the maintained source. The Word copies contain only the human
+guides and short checklist; detailed references stay linked, not appended.
+To regenerate them from the repository root, with Python and Pandoc installed:
 
-| Folder | Contents |
-|---|---|
-| `pra/workbooks/` | PRA calculation workbook |
-| `pra/sql/` | PRA legacy/query SQL |
-| `bscr/workbooks/` | BSCR workings and final HIC workbook |
-| `bscr/BSCR_UKEU.py` | PRA/BSCR CSV producer |
-| `lloyds/source/` | Received S33 workbook and instruction email |
-| `lloyds/sql/` | Lloyd's extract SQL |
-| `lloyds/workbooks/` | Four Lloyd's calculation workbooks |
-| `globalexposures/` | Global Exposures output producer |
-| `runbooks/source/` | Markdown operating instructions and DOCX source |
-| `runbooks/docx/` | Final runbook deliverables |
-| `docs/` | Technical documentation for repository scripts |
-| `dataiku/` | Checked-in Dataiku aggregation SQL and implementation plan |
+```bash
+python3 tools/build_docx.py
+```
 
-No HTML documentation site or virtual environment is committed; `uv sync` may
-create an ignored local `.venv`.
+Commands in the guides run from the repository root. Scripts, SQL and workbooks
+remain in `bscr/`, `pra/`, `lloyds/`, `globalexposures/` and `dataiku/`.
