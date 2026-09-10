@@ -1,9 +1,11 @@
-# Dataiku Aggregates Plan
+# Dataiku aggregates — historical plan
 
-The companion [LLM implementation contract](../docs/dataiku-aggs-for-llm.md)
-defines the required deterministic handling of final grain, eligibility,
-normalisation, controls, and reconciliation. Read it with this plan; do not
-infer omitted rules from the current SQL.
+[Start here](../../README.md) · [Current query documentation](aggregation.md)
+
+The companion [historical technical contract](technical-contract.md) defines
+the earlier baseline's proposed handling of final grain, eligibility,
+normalisation, controls, and reconciliation. Read it with this plan; neither
+document is the execution contract for the current canonical query.
 
 ## Current status
 

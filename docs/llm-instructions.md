@@ -1,8 +1,48 @@
-# Run checks and evidence
+# LLM and technical-review instructions
 
-Use these controls for every process in this handbook. They do not replace current regulator instructions, approved templates, or the team's control framework.
+[Human guides](../README.md) · [Short run checklist](operating-controls.md)
 
-## Run record
+This is the detailed layer. Human operators should start with their short guide.
+Use this page and the relevant technical reference when executing with LLM
+assistance, tracing calculations or investigating a discrepancy.
+
+## Reading order
+
+1. Read the process's human guide for the task and completion boundary.
+2. Read its technical reference below for exact mechanics and diagnostics.
+3. Read the relevant entries in [decisions](decisions.md) and
+   [calculation discrepancies](calculation-discrepancies.md).
+4. For workbook transfers, read the process's handoff trace. It records observed
+   lineage, not approval to populate an external template.
+5. Apply the detailed controls below and retain run-specific evidence.
+
+| Process | Detailed reference | Workbook handoff |
+|---|---|---|
+| BSCR | [Technical reference](bscr/technical-contract.md) | [Trace](bscr/handoff.md) |
+| PRA | [Technical reference](pra/technical-contract.md) | [Trace](pra/handoff.md) |
+| Lloyd's | [Technical reference](lloyds/technical-contract.md) | [Trace](lloyds/handoff.md) |
+| Global Exposures | [Technical reference](global-exposures/technical-contract.md) | CSV pack; no workbook handoff |
+| Dataiku | [Current technical guide](dataiku/current-technical-guide.md) | Provisional aggregation, not a final return |
+
+Dataiku's [historical contract](dataiku/technical-contract.md) and
+[historical plan](dataiku/historical-plan.md) describe an earlier baseline;
+do not use them as specifications for the current query.
+
+## Execution boundaries
+
+- Treat repository defaults and cached workbook values as implementation
+  evidence, not approved reporting-cycle inputs.
+- Do not invent a producer, mapping, FX rate, tolerance or approval to make a
+  workflow executable. State the missing prerequisite and stop the affected step.
+- Keep observed behavior separate from the intended calculation. A documented
+  defect is not an instruction to silently correct or reproduce it in production.
+- Report exactly what ran, what was checked, and what remains unverified.
+  External systems, controlled templates and reviewer approvals require evidence
+  outside this repository.
+
+## Detailed run controls
+
+### Run record
 
 Initialize and approve the run record before execution; complete execution,
 review, and sign-off fields afterwards. Mark genuinely inapplicable fields
@@ -23,7 +63,7 @@ evidence for a process that does not use them.
 
 Never put credentials, tokens, or connection secrets in the run record or source control.
 
-## Source approval
+### Source approval
 
 - Confirm the source is the approved reporting-period version. A successful connection does not prove that the database is the correct annual EDM or roll-up.
 - Confirm numeric peril and policy codes against the current EDM dictionary or approved controls. Repository defaults are not standing business definitions.
@@ -35,18 +75,18 @@ Never put credentials, tokens, or connection secrets in the run record or source
   correspondence. Do not commit raw regulated data, run outputs, or credentials
   unless retention and access controls explicitly permit it.
 
-## Pre-run workbook review
+### Pre-run workbook review
 
 Before replacing any data:
 
 1. Make a controlled working copy and preserve the received/check-in source as evidence.
 2. Inventory every input tab and identify its source query, script output, or workbook tab.
-3. Record formulas, tables, named ranges, pivot sources, calculation mode, validation, external links, and designated input/green cells.
+3. Record formulas, tables, named ranges, pivot sources, calculation mode, validation, external links, and designated approved input cells.
 4. Capture pre-refresh row counts and output totals.
 5. Confirm mappings, scale factors, FX, dates, units, and formula columns are the approved versions.
 6. Resolve stale links and source-range uncertainty before refreshing.
 
-## Extract controls
+### Extract controls
 
 Capture checks at multiple grains rather than relying on a grand total:
 
@@ -60,7 +100,7 @@ Capture checks at multiple grains rather than relying on a grand total:
 
 A large increase after an account-level join can multiply exposure. Investigate it; a final `GROUP BY` does not prove that duplication did not occur upstream.
 
-## File-loading controls
+### File-loading controls
 
 - Preserve the raw CSV or SQL result and exact command/query used to produce it.
 - Compare headers, column order, row count, gross/net totals, currency, and unit to the target range before pasting.
@@ -69,7 +109,7 @@ A large increase after an account-level join can multiply exposure. Investigate 
 - Confirm every table and pivot source includes all new rows and excludes stale rows.
 - Never use a schema match alone as proof that cached workbook data came from a particular query run.
 
-## Reconciliation
+### Reconciliation
 
 At minimum, reconcile:
 
@@ -85,7 +125,7 @@ At minimum, reconcile:
 
 Historical notes that an earlier result was close to a model output are historical evidence only. This repository defines no current acceptance tolerance. Agree, document, and apply the reporting-cycle tolerance.
 
-## Spreadsheet validation
+### Spreadsheet validation
 
 - Refresh only approved queries, tables, and pivots; do not blindly update stale external links.
 - Force recalculation when required and check `#REF!`, `#N/A`, `#VALUE!`, blanks, and stale cached values.
@@ -95,7 +135,7 @@ Historical notes that an earlier result was close to a model output are historic
 - Preserve template formulas, validation, structure, and non-input cells.
 - Archive the reviewed workbook without overwriting raw input evidence.
 
-## Manual handoff
+### Manual handoff
 
 For every value copied into an external template, record:
 
@@ -108,7 +148,7 @@ For every value copied into an external template, record:
 
 A workbook's presence in the repository does not establish approval. Compare it with the controlled reporting-cycle copy before calculation or submission.
 
-## Completion evidence
+### Completion evidence
 
 Archive together, in a new run-specific location (never by overwriting an
 earlier run):
@@ -128,7 +168,7 @@ query/read is required. Also retain the executed-file hash or clean-tree/diff,
 lockfile/environment and driver version, workbook application version, and
 file checksums where available.
 
-## Stop conditions
+### Stop conditions
 
 Stop and escalate when any of these remain unresolved:
 

@@ -1,5 +1,12 @@
 # Calculation discrepancy register
 
+[Start here](../README.md) · [Actionable decision register](decisions.md) ·
+[Shared controls](operating-controls.md)
+
+This register preserves observed defect evidence. Track the missing decisions,
+responsible roles, and resolution artifacts in the linked decision register;
+neither document grants production approval.
+
 **Scope:** checked-in January 2026 code, SQL, source workbooks, and calculation
 workbooks. This is an evidence register, not a proposed logic fix. A result is
 not approved for production until its required owner decision is recorded in a
@@ -69,10 +76,10 @@ in a controlled copy.
 | LLOYD-006 | High | Email says wildfire needs discussion; California report is dated 01/01/2025 while SQL names January-2026 EDM. S33 Weather has California data but no county. | Cached USD `16.2908m` reconciles arithmetically, but proxy, lineage, and as-of date are unapproved. | Approve proxy/PML, county producer, and applicable date. |
 | LLOYD-007 | High | Each SQL joins policy/portfolio at account-group grain, multiplies by `blanlimamt`, uses wildcard QS/SRP patterns, broad `%33%/%3624%` filters, and live FX. | SQL-derived results can change through duplication, terms, filters, or rates without evidence. | Approve query grain, limit semantics, literal lists, frozen FX, and before/after join checks. |
 | LLOYD-008 | High | Workbook audit summaries hold blank run-record instructions, not producer evidence. Email `Rawdata.xlsx` equals the checked-in 27-column S33 workbook, which cannot populate county/CRESTA schemas. | Cached inputs have no demonstrated approved lineage. | Evidence producer/extract for each report or classify cache as non-production. |
-| LLOYD-009 | Medium | RoW current rows end exactly at 4,988, matching pivot sources; SA current rows end at 50, within its fixed `SUMIF` range; EU report uses whole-column `SUMIFS`. | Range defects are prospective load controls, not current omissions. | Approve row-range/formula-coverage checks for future loads. |
+| LLOYD-009 | Medium | RoW inputs end at 4,988 (pivot sources `A1:M4988`), but FL L:M rows 4,989–5,676 each contain 688 cached `#N/A` values; EQ/FR M also extends past input rows. SA inputs end at 50 within its fixed `SUMIF` range. EU FL inputs end at 7,891 but T:U continues to 8,699; reports use whole-column `SUMIFS`. | Current RoW pivots exclude stale helper errors, but expanding ranges can include them; worksheet dimensions overstate input populations. | Approve input-row, stale-helper and formula-coverage checks before changed loads or range expansion. |
 | LLOYD-010 | Medium | RoW has `#REF!` defined names; SA/California/EU retain external links and a `CRESTA` name resolving to `[1]Reference!#REF!`. | Workbooks violate their stated link/error gate and may update unavailable sources. | Identify output-relevant names/links and approve/remediate each. |
 
-## Dataiku OED aggregates
+## Dataiku OED aggregates — historical baseline
 The entries below document the superseded uncapped baseline at commit
 `d264675` (`dataiku/Dataiku-Aggs.sql` before the current canonical query).
 Revalidate them against the canonical policy-terms query before using them as
@@ -86,3 +93,9 @@ current defects.
 | DATAIKU-004 | High | Components are `COALESCE(TRY_CAST(...),0)` with no validity flags (`:239-246`). | Malformed values are indistinguishable from null/zero and can understate exposure. | Approve component/row eligibility and exception counts. |
 | DATAIKU-005 | High | No retention is calculated; entity uses substring precedence (`:286-293`); only GrossTIV reaches aggregation (`:493,519-520`). | QS/SRP net and deterministic entity logic are not implemented. | Approve markers, precedence, retention, and both/no-marker handling. |
 | DATAIKU-006 | Medium | Current code is `NA_EQ` (`:56,391`) and regional sets are hard-coded (`:385,395,405,415,425,435`). | Planned `NAEQ` is a compatibility change; membership is unversioned approximation. | Approve migration and versioned country sets. |
+
+## Dataiku OED aggregates — current query
+
+| ID | Severity | Verified evidence | Effect | Required owner decision |
+|---|---|---|---|---|
+| DATAIKU-007 | High | `Dataiku-Aggs.sql` `fx_controls` nulls non-positive rates, but its separate count-only status CASE labels a unique rate `VALID` (repeated identical rates: `DUPLICATE_CONSISTENT`). Final `InvalidFXRowCount` counts neither status. | GBP measures can be null without an FX exception; aggregate sums can omit those amounts. | Require independent rate-positivity/null-GBP reconciliation before relying on totals, and approve corrected FX controls. See the [current technical guide](dataiku/current-technical-guide.md#enrichment-and-mapping-controls). |

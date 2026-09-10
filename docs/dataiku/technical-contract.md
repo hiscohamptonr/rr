@@ -1,4 +1,7 @@
-# Dataiku OED aggregates — LLM implementation contract
+# Dataiku OED aggregates — historical technical contract
+
+[Start here](../../README.md) · [Current query documentation](aggregation.md) ·
+[Historical plan](historical-plan.md)
 
 This document records the earlier **uncapped OED baseline contract**. The
 current canonical query is `dataiku/Dataiku-Aggs.sql`, which is a separate
@@ -11,9 +14,9 @@ regulatory return.
 - Input is OEDIDs 42/44. Ground-up source TIV is
   `BuildingTIV + ContentsTIV + BITIV + OtherTIV`, with `TRY_CAST` and nulls
   coalesced to zero.
-- The current query applies neither participation nor QS/SRP retention. It
+- The historical baseline query applied neither participation nor QS/SRP retention. It
   selects FX with `MAX(RateToGBP)`, then groups on that rate.
-- The exact current aggregate key is
+- Its aggregate key was
   `OEDID, DatasetLabel, UseCase, AggregationLevel, AggregationValue,
   AggregationSortOrder, BranchName, ModelledLOB, BSCREntity, CountryCode,
   IsGeocoded, SourceCurrency, SourceCurrencyRateToGBP, RateRecordCount`.
