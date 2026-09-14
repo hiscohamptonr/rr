@@ -1,57 +1,46 @@
-# BSCR Schedule X — offline operator guide
+# BSCR — SQL, CSV and Python
 
-## Scope and result
+## Run the calculation
 
-This guide runs the BSCR calculation from an approved SQL export and produces reviewed exposure files; it does **not** produce a complete Schedule X return, final-cell submission, EP curves, premiums, narratives, model classifications, or distinct-contract counts.
+1. Run `bscr/sql/bscr-extract.sql` against the correct EDM database, checking `@peril` and `@policy_type` for the required run (the file defaults to `1/1`).
+2. Export the result as a CSV with these headers: `pml, accgrpid, uwritrname, state, userid1, branchname, cntrycode, is_geocoded`.
+3. Copy the CSV to the calculation PC and open `bscr/BSCR_UKEU.py`.
+4. Set the CSV filename and output folder at the top of the file using the example below, leaving `PRA_INPUT_CSV = None` for BSCR only.
+5. Use a new or empty output folder so old and new results cannot be mixed.
+6. Run `.venv\Scripts\python bscr/BSCR_UKEU.py` from the repository folder, with no arguments.
+7. Open `bscr-output.csv` in the configured output folder and reconcile the `ALL` rows' gross totals and contributing-row counts to the source CSV.
+8. Check retained/net totals, entity, geography and geocode splits, and investigate missing mappings or unexplained differences.
+9. Save the input CSV, output, SQL parameters, database snapshot and reconciliation together.
 
-The calculation PC needs Python 3.13+ and the repository only; Excel, `uv`, ODBC, and a live database connection are not required.  An approved SQL-export host remains responsible for producing the input CSV.
+## Set the paths
 
-## Files and contract
-
-All paths are relative to the repository root.  Each input folder is one approved snapshot with one approved peril and policy selection.
-
-| File | Required contract |
-|---|---|
-| `bscr-source.csv` | Input file, with this exact header and order: `pml,accgrpid,uwritrname,state,userid1,branchname,cntrycode,is_geocoded` |
-| `bscr-output.csv` | Script output, with this exact header and order: `cntrycode,bscr_entity,region,sum_pml,sum_net,count_policies,is_geocoded` |
-| `bscr/sql/bscr-extract.sql` | Separate SQL-export query; its defaults are `@peril = 1` and `@policy_type = 1`, but the approved cycle values control the export |
-
-The checked-in workbooks `bscr/workbooks/Workings_with_geocodingFW - Including blanks USD.xlsx` and `bscr/workbooks/2026 BSCR - UKEU - HIC.xlsx` are historical/reference files only; they are not calculation inputs, and this runbook does not require opening or refreshing them.
-
-## Numbered operator steps
-
-1. Create an input folder for one snapshot and peril/policy selection, such as `runs\eq\input`.
-2. On the SQL-export host, run `bscr/sql/bscr-extract.sql` with the approved peril and policy values and save the result with headers as `bscr-source.csv` in that folder, retaining parameters and source totals.
-3. From the repository root on the calculation PC, create the one-time environment with `python -m venv .venv` and Windows dependencies with `.venv\Scripts\python -m pip install -r bscr\requirements.txt`.
-4. Ensure the output directory is absent or empty before starting and do not reuse it for another snapshot.
-5. Set `BSCR_INPUT_CSV`, `PRA_INPUT_CSV` and `OUTPUT_DIR` at the top of `bscr/BSCR_UKEU.py` using the example below, then run `.venv\Scripts\python bscr/BSCR_UKEU.py` with no arguments.
-6. Confirm that the run completes and that `bscr-output.csv` in your output folder has the exact seven-column header and non-partial contents.
-7. Reconcile source and output row counts, gross/net totals, entity and region totals, country/state frequencies, geocode splits, and unexplained nulls or unmapped values before review.
-8. Retain the input CSV, output CSV, query revision and parameters, source controls, run command, code revision, reconciliation, exceptions, and reviewer record together as the run evidence.
-
-Edit this configuration block at the top of the Python file, replacing the example locations with your actual paths:
+Replace these example paths at the top of the Python file:
 
 ```python
-BSCR_INPUT_CSV = Path(r"C:\Returns\eq\input\my BSCR extract.csv")
+BSCR_INPUT_CSV = Path(r"C:\Returns\my BSCR extract.csv")
 PRA_INPUT_CSV = None
-OUTPUT_DIR = Path(r"C:\Returns\eq\output")
+OUTPUT_DIR = Path(r"C:\Returns\bscr-output")
 ```
 
-Include the CSV filename in `BSCR_INPUT_CSV`; `None` skips PRA, and setting both CSV paths runs both calculations.
+The input path includes the **CSV filename**; the output path is a **folder**.
 
-## Interpret the output safely
+## One-time Python setup
 
-`sum_pml` is gross source-currency exposure before retention, `sum_net` applies the current Python retention logic, and `count_policies` is a contributing grouped/source-row count rather than a guaranteed distinct policy or contract count.  `ALL` and regional rows are overlapping views, so never add regional rows together or treat them as separate peril extracts.  A new peril selection requires its own approved SQL snapshot; changing a region filter is not a substitute for a separate peril extraction.
+Use Python 3.13+ and run these commands from the repository folder on Windows:
 
-Record source currency explicitly: Python does not convert currency, and a USD-labelled historical workbook view does not make a source-currency CSV USD.  The historical workings workbook applied a hard-coded `1.35` conversion and `/1,000,000` scaling, but those workbook mechanics are not part of this offline CSV calculation.
+```text
+python -m venv .venv
+.venv\Scripts\python -m pip install -r bscr\requirements.txt
+```
 
-## Stop conditions and current blockers
+The calculation PC needs neither database access nor `uv`; SQL runs separately where database access is available.
+On macOS/Linux use `.venv/bin/python` instead of `.venv\Scripts\python`.
 
-- Stop for a missing, partial, reordered, or extra-header input; a non-empty output directory; a failed run; a missing output; unexplained control-total differences; or unexplained join multiplication.
-- The policy join is not proven to be policy-grain safe because `policyid` is omitted from downstream grouping; multiple policy/geography rows can multiply exposure, so review join diagnostics before relying on totals.
-- The current `is_nahu()` implementation classifies every US row as NAHU because its intended state allow-list is bypassed; do not describe this as approved coastal-state logic.
-- Retention remains `_QS = 0.50`, `_SRP = 0.3333`, otherwise `1.00`, with `_QS` taking precedence when both markers occur; source currency, FX direction, and annual rate approval remain open.
-- Approval of all-peril codes and the final source snapshot is unresolved, so defaults are convenience values rather than cycle approval.
-- The final HIC template has no approved source-to-cell map and cannot be inferred from labels, colours, cached values, or prior layouts; the checked-in template also contains documented formula/link defects.
+## Check before using the output
 
-The output is reviewed BSCR exposure input only.  Historical workbooks may be used for comparison after the CSV reconciliation, but they are optional and do not convert this run into an approved final return.
+- Keep source currency and units: the script does not convert to USD or millions.
+- Do not add overlapping regional rows together or treat `count_policies` as distinct contracts.
+- Confirm the existing retention rules (QS 50%, SRP 33.33%, QS first) and geography rules: the current hurricane flag includes every US row.
+- Stop on failed/partial exports, unexplained totals or policy-join multiplication; workbooks are not needed for this calculation.
+
+**To return to later:** agree where the exposure results go in the final HIC template and obtain the separate EP curves, premiums and contract counts; this CSV is not the complete BSCR return.

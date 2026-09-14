@@ -1,55 +1,27 @@
-# Dataiku OED aggregation
+# Dataiku — OED aggregation
 
-[Start here](../../README.md) · [Run checklist](../operating-controls.md) ·
-[Detailed LLM reference](current-technical-guide.md)
+## Run the query
 
-**Result:** provisional exposure totals from OED, split by peril and geography.
-This is **not** the PRA, BSCR or Lloyd's return process, despite those output labels.
+1. Open `dataiku/Dataiku-Aggs.sql` in the approved Dataiku/Databricks SQL environment, not a SQL Server client.
+2. Confirm the source snapshot and OED IDs (the query selects 42 for UK and 44 for EU), plus LOB mappings, FX, participation, Fine Art cession, peril and geography rules.
+3. Check access to `prod_group_kairos_sandbox.dataiku.ukeu_validator_oed`, `prod_group_kairos_sandbox.dataiku_temp.RETAILROLLUPDATA_map_lob_mapping_gc` and `prod_group_kairos_sandbox.dataiku_temp.RETAILROLLUPDATA_map_fx_rates`.
+4. Run the SQL using the approved job or client and retain the query revision and output dataset location.
+5. Select **one use case, one level and one peril** before adding up results, using the available views below.
+6. Reconcile detail to grouped totals and check row/account/location counts, TIV, participation and LOB exceptions.
+7. Check that every currency has a positive, usable FX rate and investigate null GBP amounts independently of the exception count.
+8. Resolve missing geography, mappings and unexplained differences, then retain the output and reconciliation together.
 
-## 1. Confirm the inputs
-
-Use `dataiku/Dataiku-Aggs.sql` in the approved Dataiku/Databricks SQL environment.
-It selects OEDIDs **42 (UK)** and **44 (EU)** and reads:
-
-- `prod_group_kairos_sandbox.dataiku.ukeu_validator_oed`
-- `prod_group_kairos_sandbox.dataiku_temp.RETAILROLLUPDATA_map_lob_mapping_gc`
-- `prod_group_kairos_sandbox.dataiku_temp.RETAILROLLUPDATA_map_fx_rates`
-
-Confirm the snapshot, OED IDs, LOB mappings, FX, participation scale, Fine Art
-cession, peril scope and geography rules with the owner before running.
-Record the exact query revision and job/output location.
-
-## 2. Run and choose the right output
-
-Execute the query using your approved SQL job/client. There is no repository
-CLI command for connecting to the warehouse.
+## Choose the output view
 
 | Output label | Available levels |
 |---|---|
-| `Aggs`, `Lloyds` | Country, US state and postcode |
-| `PRA` | Country and US state |
-| `BSCR` | Country, US state and overlapping regional views, including `ALL` |
+| `Aggs`, `Lloyds` | Country, US state, postcode |
+| `PRA` | Country, US state |
+| `BSCR` | Country, US state, overlapping regional views including `ALL` |
 
-`PRA_REGION`, `CRESTA` and `ACCOUNT` are not emitted. Only enabled EQ, FL, WS
-and FR flags produce rows. **Choose one use case, level and peril before totaling**;
-do not add overlapping views together.
+Only enabled EQ, FL, WS and FR flags produce rows; `PRA_REGION`, `CRESTA` and `ACCOUNT` levels are not emitted.
+Do not add overlapping views together.
 
-## 3. Check before using totals
+**Stop if FX is missing, zero or negative:** GBP values can be null without increasing `InvalidFXRowCount`, so a zero exception count does not prove conversion is complete.
 
-The query calculates TIV, then gross after deductibles/limits, then net after
-participation and Fine Art retention. It also converts those measures to GBP.
-
-- Reconcile detail to grouped totals at your chosen level.
-- Review row/account/location counts and TIV, participation and LOB exceptions.
-- Check every currency has a usable positive FX rate. **Zero/negative rates can
-  leave GBP amounts null without increasing `InvalidFXRowCount`.** Check null
-  converted amounts independently; zero exceptions do not prove complete conversion.
-- Investigate missing geography or mappings before relying on the output.
-
-Keep the query, source snapshot, output dataset, checks and reviewer sign-off.
-The [FX decision](../decisions.md#dataiku-01) remains open.
-
-For exact levels, grouping keys, formulas and controls, use the
-[current technical guide](current-technical-guide.md). The
-[historical contract](technical-contract.md) and [plan](historical-plan.md)
-describe an earlier uncapped design, **not this query**.
+These are provisional exposure totals, not the PRA, BSCR or Lloyd's returns despite the output labels.

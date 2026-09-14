@@ -1,88 +1,49 @@
-# Lloyd's supplementary information
+# Lloyd's supplementary — SQL and Excel
 
-[Start here](../../README.md) · [Run checklist](../operating-controls.md) ·
-[Detailed LLM reference](technical-contract.md)
+## Start here
 
-**Result:** four calculation reports for transfer to a separate Lloyd's/RDS
-template. The approved final template and destination-cell map are not supplied.
-Each branch also has unresolved calculation decisions, listed below.
+1. Open working copies of the required calculation workbooks in `lloyds/workbooks/`.
+2. Keep `lloyds/source/Supplementary Info UKEU S33.xlsx` and its accompanying `.msg` correspondence as source evidence, not ready-to-paste extracts.
+3. Obtain the matching extract for each branch below and check its headers against the workbook before loading it.
+4. Clear old input rows only and paste **data without headers from row 2**, preserving the existing headers, scale factors, formulas and report areas.
 
-## 1. Get the source pack
-
-Keep these together:
-
-- `lloyds/source/Supplementary Info UKEU S33.xlsx`
-- `lloyds/source/RE RDS Supplementary Information - UKEU 33.msg`
-
-The S33 tabs are **source evidence, not ready-to-paste extracts**. Use an
-approved SQL query or transformation with the fields each workbook needs.
-Complete the [run checklist](../operating-controls.md) before loading data.
-
-## 2. Prepare each branch
-
-All calculation workbooks below are in `lloyds/workbooks/`. Work on copies.
-Paste data **without headers**, starting at row 2; preserve helper/formula columns.
-
-### Rest of World — country/peril
+## Rest of World — country and peril
 
 Workbook: `UKEU - Supplementary Info - RDL - Jan26 - Workings - ROW.xlsx`
 
-- Source: S33 `Weather` evidence plus four approved peril extracts/transformations.
-- Load A:K on `EQ Extract - Open Market`, `FR Extract  - Open Market`
-  (two spaces before the hyphen), `FL Extract - Open Market` and `WS Extract - Open Market`.
-- Preserve scale L and formula M. Report: `3. RoW Exposure Monitoring`.
-  Review stale helper rows too: the flood sheet has `#N/A` below the current inputs.
-- **Stop:** approve the source measure/currency, scale factors and pivot ranges.
-  The checked-in SQL is fixed to `3/3`; do not reuse it unchanged for all perils.
+1. Obtain separate EQ, FR, FL and WS extracts using the S33 Weather evidence and confirmed transformations; the checked-in `lloyds/sql/Supplementary Info - Workings - ROW Aggs - SQL.sql` is fixed to `3/3`, not all four perils.
+2. Paste A:K from row 2 into `EQ Extract - Open Market`, `FR Extract  - Open Market`, `FL Extract - Open Market` and `WS Extract - Open Market`, respectively (FR has two spaces before the hyphen).
+3. Preserve scale column L, extend the correct formulas in M and remove stale input/helper rows, including the flood sheet's old `#N/A` rows.
+4. Confirm the measure, currency, scales and pivot ranges before refreshing the report `3. RoW Exposure Monitoring`.
 
-### South Africa — earthquake CRESTA
+## South Africa — earthquake CRESTA
 
 Workbook: `UKEU - Supplementary Info - Workings - South Africa EQ - Jan 2026.xlsx`
 
-- Source: approved `lloyds/sql/SouthAfrica_Aggs.sql` or transformation; S33 `Quake`
-  lacks the required CRESTA fields.
-- Load `Core data!A:R`; preserve scale S and formulas T:U.
-- Report: `05 South Africa EQ Aggs`.
-- **Stop:** approve gross/net and currency basis, report date, range maintenance
-  and treatment of blank/unmapped CRESTA zones.
+1. Run the confirmed `lloyds/sql/SouthAfrica_Aggs.sql` extraction or matching transformation; the S33 Quake tab alone lacks the required CRESTA fields.
+2. Paste into `Core data!A2`, filling A:R only, preserve scale column S and extend the correct formulas in T:U.
+3. Confirm gross/net treatment, currency, report date, source ranges and blank/unmapped CRESTA treatment before refreshing `05 South Africa EQ Aggs`.
 
-### California — wildfire county
+## California — wildfire county
 
 Workbook: `UKEU - Supplementary Info - RDL - Jan26 - Workings - California WF.xlsx`
 
-- Source: owner-approved wildfire exposure/proxy. If using SQL, approve
-  `lloyds/sql/FA_California_Aggs.sql`; do not invent county from S33.
-- Load `Core data!A:M`; preserve helper N.
-- Report: `06 California Wildfire Aggs`.
-- **Stop:** approve the wildfire proxy/PML and resolve the report-date mismatch.
+1. Confirm the wildfire exposure/proxy and PML before using `lloyds/sql/FA_California_Aggs.sql`; do not invent county data from S33.
+2. Paste into `Core data!A2`, filling A:M only, and preserve helper column N.
+3. Resolve the report-date mismatch before reviewing `06 California Wildfire Aggs`.
 
-### Europe — earthquake/flood CRESTA
+## Europe — earthquake and flood CRESTA
 
 Workbook: `UKEU - Supplementary Info - RDL - Jan26 - Workings - EU Cresta.xlsx`
 
-- Source: separately approved EQ and FL extracts. S33 `EU exposure - weather & quake`
-  needs a transformation; no matching producer is checked in.
-- Load A:R on `Core data EQ` and `Core data FL`; preserve scale S and formulas T:U.
-- Report: `11 LIC EU CRESTA`.
-- **Stop:** approve uniform formulas, FX direction/date and unmapped-zone treatment.
-  **Do not fill down the current flood formulas:** they mix source and USD amounts.
+1. Obtain separately confirmed EQ and FL extracts; the S33 `EU exposure - weather & quake` tab needs a transformation and no matching producer is checked in.
+2. Paste into `Core data EQ!A2` and `Core data FL!A2`, filling A:R only and preserving scale S and formulas T:U.
+3. Resolve the mixed source/USD flood formulas before filling down, and confirm FX direction/date and unmapped-zone treatment before reviewing `11 LIC EU CRESTA`.
 
-## 3. Load, recalculate and check
+## Finish each branch
 
-Once the relevant stops are resolved:
+1. Extend only confirmed formulas and source ranges through the new data, refresh the relevant pivots and recalculate in Excel without blindly updating external links.
+2. Reconcile report totals and agreed exclusions to the extract and resolve formula errors, missing geography and unexplained differences.
+3. Save the workbook, extract and reconciliation together; transfer values only when the final template and destination cells have been agreed.
 
-1. Review `AUDIT_SUMMARY`, mappings, FX, formulas and links in each working copy.
-2. Check extract headers/order. Replace old input rows only; extend approved
-   helpers/formulas and source ranges to all new rows, leaving no stale data.
-3. Refresh approved pivots only and recalculate in Excel. Do not blindly update external links.
-4. Reconcile each report plus approved exclusions to its source total.
-   Investigate missing geography, formula errors and unexplained differences.
-
-## 4. Transfer and review
-
-Use an approved report-range-to-final-cell map—not cell colour or label matching.
-Log transfers and obtain reviewer sign-off using the run checklist.
-
-For formulas and detailed checks, use the [technical reference](technical-contract.md).
-For decisions and missing final mappings, see [LLOYDS-01–03](../decisions.md#lloyds-01)
-and the [handoff trace](handoff.md).
+**To return to later:** obtain the final Lloyd's/RDS template and agreed destination cells; these are calculation reports, not completed submission forms.

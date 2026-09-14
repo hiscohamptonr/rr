@@ -35,7 +35,7 @@ You do not need to read the technical pack before browsing a human guide.
 Open `.docx` files in Word. For Markdown, open this folder in VS Code, select
 `README.md` and press **⌘⇧V** for a formatted preview.
 
-Markdown is the maintained source. The Word copies contain only the human guides and short checklist; detailed references stay linked, not appended.
+Markdown is the maintained source. Each Word file contains only its process's short runbook—no appended checklist, technical reference or source-identity section.
 To regenerate them from the repository root, documentation maintainers need Python and Pandoc; calculation operators do not need Pandoc:
 
 ```bash

@@ -1,58 +1,24 @@
-# Global Exposures
+# Global Exposures — event exposure files
 
-[Start here](../../README.md) · [Run checklist](../operating-controls.md) ·
-[Detailed LLM reference](technical-contract.md)
+**Not ready for an operator run:** the SQL Server spatial implementation is still required; `globalexposures/exposures.py` remains a maintainer-only calculation, not an approved reporting route.
 
-**Result:** a CSV pack of exposure and estimated loss within event polygons.
-There is no calculation workbook or Excel-loading step.
+## Prepare the run
 
-**Before production:** the owner must approve the source snapshot, event/PML
-data, policy/portfolio rules and spatial controls. See
-[GLOBAL-01](../decisions.md#global-01). A successful command is not approval.
+1. Confirm the annual EDM snapshot and the event, polygon and PML records in `GlobalExposures.data.Events`, `ShapeFiles` and `PML`.
+2. Confirm event IDs, polygon validity, coordinates, policy/portfolio rules and independent exposure totals before any calculation.
+3. Use a new, empty output folder for each run so files from different events or snapshots are not mixed.
+4. Do not run or deliver this as an operator process until the spatial implementation, validation evidence and source rules have been approved.
 
-## 1. Get ready
+## Check a supplied calculation pack
 
-The script reads the annual EDM and `GlobalExposures.data.Events`,
-`ShapeFiles` and `PML` database tables—not spreadsheets. Confirm the server,
-ODBC Driver 17 access and approved settings in `globalexposures/exposures.py`.
+1. Read `*_summary.csv` for status and event counts, not monetary totals.
+2. Check `*_run_log.csv` and `*_error_log.csv` and account for every selected event.
+3. Reconcile `edm_exposures.csv` to independent EDM totals.
+4. Reconcile `*_account_breakdown.csv` and `*_location_breakout.csv` to the impacted-location detail in `*_location_rows.csv`.
+5. Investigate missing files or headers, multiplied exposure, invalid geometry/PML, missing policy factors and every zero/no-impact result.
+6. Accept a zero only with independent evidence of no impact, and do not sum overlapping events without an agreed rule.
+7. Keep the full CSV pack, source settings, calculation command and reconciliations together.
 
-Complete the [run checklist](../operating-controls.md). Check event/polygon/PML
-IDs, polygon validity, coordinates and independent EDM totals. Use a **new,
-empty output folder**: files are written individually, so reusing a folder can
-mix results from different runs.
+There is no Excel-loading step for this process; a CSV pack alone does not establish that every event was calculated correctly.
 
-## 2. Current operator boundary
-
-There is currently no approved no-Python SQL/Excel route for the spatial
-calculation. Do not install Python or `uv`, and do not run this route as an
-operator workflow. The checked-in implementation remains
-`globalexposures/exposures.py` and is maintainer/developer-only pending an
-approved SQL Server spatial implementation.
-
-Do not load or deliver Global Exposures results from the current repository
-without that implementation, its validation evidence, and owner approval.
-
-
-## 3. Check the CSV pack
-
-| File | What to check |
-|---|---|
-| `*_summary.csv` | Overall status and event counts—not monetary totals |
-| `*_run_log.csv`, `*_error_log.csv` | Every selected event accounted for; investigate failures |
-| `*_location_rows.csv` | Impacted-location detail |
-| `*_account_breakdown.csv`, `*_location_breakout.csv` | Grouped totals reconcile to detail |
-| `edm_exposures.csv` | Extract reconciles to independent EDM controls |
-
-Investigate missing files/headers, join multiplication, invalid geometry/PML,
-missing policy factors and every zero/no-impact result. A zero is acceptable
-only with independent evidence that there was genuinely no impact. Do not sum
-across overlapping events without an approved rule.
-
-## 4. Review and deliver
-
-Retain the full CSV pack, command, configuration/source snapshot, counts,
-reconciliations and reviewer sign-off. Stop if any selected event or unexplained
-exception remains unresolved.
-
-The [technical reference](technical-contract.md) describes exact SQL, spatial
-selection, status behavior and detailed validation requirements.
+**To return to later:** finish and validate the SQL Server spatial route before using this process for reporting.

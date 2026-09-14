@@ -28,8 +28,6 @@ class Document:
     pages: tuple[Path, ...]
 
 
-SHARED_PAGES = (DOCS / "operating-controls.md",)
-
 DOCUMENTS = (
     Document(
         stem="PRA-Jan-2026",
@@ -39,26 +37,17 @@ DOCUMENTS = (
     Document(
         stem="BSCR-Jan-2026",
         title="BSCR Schedule X Runbook",
-        pages=(
-            DOCS / "bscr" / "runbook.md",
-            *SHARED_PAGES,
-        ),
+        pages=(DOCS / "bscr" / "runbook.md",),
     ),
     Document(
         stem="Lloyds-Supplementary-Jan-2026",
         title="Lloyd's/RDS Supplementary Runbook",
-        pages=(
-            DOCS / "lloyds" / "runbook.md",
-            *SHARED_PAGES,
-        ),
+        pages=(DOCS / "lloyds" / "runbook.md",),
     ),
     Document(
         stem="Global-Exposures-Jan-2026",
         title="Global Exposures Runbook",
-        pages=(
-            DOCS / "global-exposures" / "runbook.md",
-            *SHARED_PAGES,
-        ),
+        pages=(DOCS / "global-exposures" / "runbook.md",),
     ),
 )
 
