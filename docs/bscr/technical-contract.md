@@ -76,6 +76,16 @@ The current `is_nahu()` implementation returns true for every US row because its
 
 The checked-in workings workbook historically contained `Sheet1!A:G` source rows, formula columns `H:K`, static `output!A:F`, formula columns `G:J`, and `piv` review values.  Its static bridge was not a refreshable link, and its pivots had fixed historical ranges.  These artifacts explain prior comparisons only; the Python CSV calculation does not open, update, or depend on them.
 
+The workings file's package metadata was repaired without changing calculations:
+`[Content_Types].xml` and workbook relationships now use default package
+namespaces, and `xl/workbook.xml` declares the `x15` prefix required by its
+markup-compatibility attributes. Before repair, Microsoft's OpenXML reader
+failed with “Required Types tag not found”; after repair it opens the package
+and reports zero validation errors. All worksheet, formula, cached-value,
+pivot and style parts were preserved byte-for-byte. Desktop Excel opening
+still requires confirmation; this repair does not resolve the static bridge
+or other calculation issues.
+
 The HIC workbook is a historical final-template reference with unresolved `#REF!`/external-link defects and no approved source-to-cell map.  Labels, colours, cached values, and prior layouts cannot identify current editable destinations.
 
 ## Review boundary and blockers

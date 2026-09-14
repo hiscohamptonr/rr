@@ -45,8 +45,6 @@ Do not substitute an eight-column BSCR source for `pra-source.csv`, and do not p
 
 ## Optional current workbook review
 
-The user-reported Excel corruption is unresolved; the workbook is not required for the CSV calculation and the reference steps below are deferred until it opens correctly.
-
 `pra/workbooks/PRA_Aggs.xlsx` is optional: it has only the two aggregate sheets and their three mapping sheets, not the former raw-data, BSCR-panel or SQL tabs.
 
 1. Choose `pivot_eq` for earthquake or `pivot_allperil` for a separately confirmed all-peril input.
