@@ -1,7 +1,12 @@
-# Excel-first operator workflow
+# Excel workbook reference
 
-Download/open the [operator workbook](generated/Regulatory-Returns-Operator.xlsx).
-This is the supported operator workflow. It does not require Python, `uv`, or a local development environment.
+**PRA/BSCR calculations now run offline from SQL-exported CSVs, not Excel refreshes.**
+Use the PRA or BSCR runbook for the SQL filenames, input folder and Python command.
+Those calculations require Python but no database driver, database access, Excel or `uv`.
+
+The [operator workbook](generated/Regulatory-Returns-Operator.xlsx) and the
+instructions below are historical workbook-reference material, not the current
+PRA/BSCR calculation procedure; the operator workbook has no embedded connections.
 
 ## Required tools
 

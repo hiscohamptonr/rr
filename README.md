@@ -1,7 +1,9 @@
 # Regulatory returns
 
-The supported operator workflow is Excel-first: [Excel operator guide](docs/excel-operator-guide.md).
-Operators do not need Python or `uv`.
+PRA and BSCR use **SQL exports → CSV input folder → offline Python calculation**.
+Run SQL where database access is available; the calculation PC needs Python but
+does not need SQL Server access, ODBC, Excel, or `uv`.
+The calculation script does not read or update workbooks.
 ## Start with your guide
 
 These are the short, human-readable instructions. Each covers what you need,
@@ -25,7 +27,7 @@ Dataiku is a separate provisional route, not a replacement for the returns.
 - **LLMs and technical reviewers:** start with [LLM instructions](docs/llm-instructions.md), then the process's technical reference.
 - **Something is blocked:** [decisions](docs/decisions.md) lists the answer or artifact needed and how to close the issue.
 - **Why is it blocked?** [calculation discrepancies](docs/calculation-discrepancies.md) contains the code and workbook evidence.
-- **Where do workbook values go?** The [BSCR](docs/bscr/handoff.md), [PRA](docs/pra/handoff.md) and [Lloyd's](docs/lloyds/handoff.md) handoff traces distinguish known internal paths from missing final-cell maps.
+- **Where do calculated values go?** The [BSCR](docs/bscr/handoff.md), [PRA](docs/pra/handoff.md) and [Lloyd's](docs/lloyds/handoff.md) traces distinguish calculated outputs from missing final-cell maps.
 
 You do not need to read the technical pack before browsing a human guide.
 
@@ -35,7 +37,7 @@ Open `.docx` files in Word. For Markdown, open this folder in VS Code, select
 `README.md` and press **⌘⇧V** for a formatted preview.
 
 Markdown is the maintained source. The Word copies contain only the human guides and short checklist; detailed references stay linked, not appended.
-To regenerate them from the repository root, maintainers need Python and Pandoc; operators do not:
+To regenerate them from the repository root, documentation maintainers need Python and Pandoc; calculation operators do not need Pandoc:
 
 ```bash
 python3 tools/build_docx.py

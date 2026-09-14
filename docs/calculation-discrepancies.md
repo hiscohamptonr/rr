@@ -13,9 +13,11 @@ not approved for production until its required owner decision is recorded in a
 run pack.
 
 **Method:** the referenced Python/SQL and OOXML workbook formulas, pivot caches,
-named ranges, source ranges, and cached values were inspected. Workbook findings
-describe the checked-in state; Excel refresh behaviour still requires validation
-in a controlled copy.
+named ranges, source ranges, and cached values were inspected. These findings
+and Python line numbers describe the January baseline in repository history,
+not the later file layout: SQL now runs separately from offline CSV calculation,
+and `PRA_Aggs.xlsx` no longer contains the raw BSCR helper or SQL sheets.
+The underlying financial issues are not resolved by that workflow cleanup.
 
 ## How to use this register
 

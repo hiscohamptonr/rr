@@ -1,7 +1,8 @@
-"""Produce BSCR aggregate outputs from Microsoft SQL Server.
+"""Calculate BSCR and PRA CSV outputs from independently exported SQL results.
 
-External data sources: the configured SQL Server database's ``loccvg``, ``loc``,
-``policy``, and ``accgrp`` tables.
+Run bscr/sql/bscr-extract.sql and/or pra/sql/pra-raw.sql on the database
+machine, then copy their CSV exports to the calculation machine.
+This script never connects to SQL Server or reads a workbook.
 """
 
 from __future__ import annotations
@@ -9,22 +10,9 @@ from __future__ import annotations
 import argparse
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from urllib.parse import quote_plus
 
 import polars as pl
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
 from tabulate import tabulate
-
-DEFAULT_SERVER = r"pr0503-14002-00\LMRMSINSURANCE"
-DEFAULT_DATABASE = "HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM"
-DEFAULT_ENCRYPT = "yes"
-DEFAULT_TRUST_SERVER_CERTIFICATE = "yes"
-DEFAULT_ODBC_DRIVER = "ODBC Driver 18 for SQL Server"
-DEFAULT_OUTPUT = Path("output.csv")
-DEFAULT_PERIL = 1
-DEFAULT_POLICY_TYPE = 1
-CONNECTION_TIMEOUT_SECONDS = 30
 
 LOB_COLUMN = "userid1"
 BSCR_ENTITIES = ("HIG", "HSA", "33", "3624", "HIC")
@@ -50,257 +38,6 @@ PRA_RAW_COLUMNS = [
     "cntrycode",
 ]
 PRA_AGGREGATE_COLUMNS = ["pml", "state", "userid1", "cntrycode", "uwritrname"]
-
-QUERY = """
-
-
-with loc_tiv as (
-	select
-		locid,
-		peril,
-		deductamt,
-		deductcur,
-		sum(valueamt) valueamt
-
-	from loccvg
-	where peril = :peril
-	group by
-		locid,
-		peril,
-		deductamt,
-		deductcur,
-		limitamt,
-		limitcur
-
-	)
-
-
-
-, gross_loctiv as (
-
-
-	select
-		case when valueamt < deductamt then 0
-		else valueamt
-		end as pml,
-		*
-
-		from loc_tiv
-
-)
-
-
-, selected_locs as (
-
-select  locid, accgrpid, locnum,
-case when addrmatch = 0 then 0 else 1 end as is_geocoded,
-case when cntrycode = 'US' then state else '' end as state,
-cntrycode, country
-from loc
-
-	)
-
-
-, loc_exposure as (
-
-	select
-
-	sum(gross_loctiv.pml) as pml,
-	selected_locs.accgrpid,
-	state, cntrycode, country,
-	is_geocoded
-	from gross_loctiv
-	inner join selected_locs on selected_locs.locid = gross_loctiv.locid
-	group by accgrpid, state, cntrycode, country, is_geocoded
-
-	)
-
-
-, policies as (
-
-	select distinct policy.accgrpid, policyid, partof,
-	case when blanlimamt = 0 then 0 else partof end as policy_limit,
-	undcovamt, blandedamt, accgrp.userid1, accgrp.branchname, accgrp.UWritrname, is_geocoded
-	from policy
-	inner join accgrp on accgrp.accgrpid = policy.accgrpid
-	inner join  loc_exposure on loc_exposure.accgrpid = accgrp.accgrpid and loc_exposure.accgrpid = policy.accgrpid
-	where policy.policytype = :policy_type
-
-	)
-
-
-
-, policy_exposure as (
-
-		select
-			case when sum(pml) > policy_limit then policy_limit else sum(pml) end as pml,
-			policies.accgrpid,
-			uwritrname,
-			state,
-			userid1,
-			branchname,
-			cntrycode,
-			policies.is_geocoded
-	from loc_exposure
-	inner join policies on policies.accgrpid = loc_exposure.accgrpid
-	group by
-			policies.accgrpid,
-			uwritrname,
-			state,
-			userid1,
-			branchname,
-			cntrycode,
-			policies.is_geocoded,
-			policy_limit
-
-	)
-
-
-
-
-select sum(pml) as pml, accgrpid, uwritrname, state, userid1, branchname, cntrycode, is_geocoded from policy_exposure
-group by state, cntrycode, userid1, uwritrname, branchname, is_geocoded, accgrpid
-order by sum(pml) desc
-
-"""
-
-# This is the same query family without the BSCR-only geocoding split. Its
-# output grain matches raw_data_for_bscr_splits_eq in PRA_BSCR_Aggs.xlsx.
-PRA_QUERY = """
-with loc_tiv as (
-	select
-		locid,
-		peril,
-		deductamt,
-		deductcur,
-		sum(valueamt) valueamt
-	from loccvg
-	where peril = :peril
-	group by
-		locid,
-		peril,
-		deductamt,
-		deductcur,
-		limitamt,
-		limitcur
-),
-gross_loctiv as (
-	select
-		case when valueamt < deductamt then 0 else valueamt end as pml,
-		*
-	from loc_tiv
-),
-selected_locs as (
-	select
-		locid,
-		accgrpid,
-		locnum,
-		case when cntrycode = 'US' then state else '' end as state,
-		cntrycode,
-		country
-	from loc
-),
-loc_exposure as (
-	select
-		sum(gross_loctiv.pml) as pml,
-		selected_locs.accgrpid,
-		state,
-		cntrycode,
-		country
-	from gross_loctiv
-	inner join selected_locs on selected_locs.locid = gross_loctiv.locid
-	group by accgrpid, state, cntrycode, country
-),
-policies as (
-	select distinct
-		policy.accgrpid,
-		policyid,
-		partof,
-		case when blanlimamt = 0 then 0 else partof end as policy_limit,
-		undcovamt,
-		blandedamt,
-		accgrp.userid1,
-		accgrp.branchname,
-		accgrp.uwritrname
-	from policy
-	inner join accgrp on accgrp.accgrpid = policy.accgrpid
-	inner join loc_exposure on loc_exposure.accgrpid = accgrp.accgrpid
-		and loc_exposure.accgrpid = policy.accgrpid
-	where policy.policytype = :policy_type
-),
-policy_exposure as (
-	select
-		case when pml > policy_limit then policy_limit else pml end as pml,
-		policies.accgrpid,
-		uwritrname,
-		state,
-		userid1,
-		branchname,
-		cntrycode
-	from loc_exposure
-	inner join policies on policies.accgrpid = loc_exposure.accgrpid
-)
-select pml, accgrpid, uwritrname, state, userid1, branchname, cntrycode
-from policy_exposure
-order by pml desc
-"""
-
-
-def build_engine(
-    server: str = DEFAULT_SERVER,
-    database: str = DEFAULT_DATABASE,
-    encrypt: str = DEFAULT_ENCRYPT,
-    trust_server_certificate: str = DEFAULT_TRUST_SERVER_CERTIFICATE,
-    odbc_driver: str = DEFAULT_ODBC_DRIVER,
-) -> Engine:
-    """Create the SQLAlchemy engine without opening a connection."""
-    odbc_connection_string = (
-        f"Driver={{{odbc_driver}}};"
-        f"Server={server};"
-        f"Database={database};"
-        "Trusted_Connection=yes;"
-        f"Encrypt={encrypt};"
-        f"TrustServerCertificate={trust_server_certificate};"
-        f"Connection Timeout={CONNECTION_TIMEOUT_SECONDS};"
-    )
-    return create_engine(
-        "mssql+pyodbc:///?odbc_connect=" + quote_plus(odbc_connection_string),
-        fast_executemany=True,
-        pool_pre_ping=True,
-    )
-
-
-def check_connection(engine: Engine) -> None:
-    """Verify that SQL Server accepts a connection before running the query."""
-    with engine.connect() as connection:
-        result = connection.execute(text("SELECT 1 AS ok")).scalar()
-    assert result == 1
-
-
-def load_exposure(
-    engine: Engine,
-    peril: int = DEFAULT_PERIL,
-    policy_type: int = DEFAULT_POLICY_TYPE,
-) -> pl.DataFrame:
-    """Run the BSCR exposure query and retain the pipeline's source columns."""
-    return pl.read_database(
-        text(QUERY),
-        engine,
-        execute_options={"parameters": {"peril": peril, "policy_type": policy_type}},
-    ).select(SOURCE_COLUMNS)
-
-
-def load_pra_exposure(
-    engine: Engine,
-    peril: int,
-    policy_type: int,
-) -> pl.DataFrame:
-    """Run the non-geocoded query at the PRA raw-workbook grain."""
-    return pl.read_database(
-        text(PRA_QUERY),
-        engine,
-        execute_options={"parameters": {"peril": peril, "policy_type": policy_type}},
-    ).select(PRA_RAW_COLUMNS)
 
 
 def print_source_summary(data: pl.DataFrame) -> None:
@@ -606,113 +343,101 @@ def write_csv(data: pl.DataFrame, path: Path) -> None:
     data.write_csv(path)
 
 
-def run_pipeline(
-    server: str = DEFAULT_SERVER,
-    database: str = DEFAULT_DATABASE,
-    encrypt: str = DEFAULT_ENCRYPT,
-    trust_server_certificate: str = DEFAULT_TRUST_SERVER_CERTIFICATE,
-    output: Path = DEFAULT_OUTPUT,
-    peril: int = DEFAULT_PERIL,
-    policy_type: int = DEFAULT_POLICY_TYPE,
-    source_output: Path | None = None,
-    pra_raw_output: Path | None = None,
-    pra_aggregate_output: Path | None = None,
-) -> pl.DataFrame:
-    """Load, transform, and export the BSCR aggregates."""
-    engine = build_engine(server, database, encrypt, trust_server_certificate)
-    pra_source_data = None
-    try:
-        check_connection(engine)
-        source_data = load_exposure(engine, peril, policy_type)
-        if pra_raw_output is not None or pra_aggregate_output is not None:
-            pra_source_data = load_pra_exposure(engine, peril, policy_type)
-    finally:
-        engine.dispose()
+def load_source_csv(path: Path, columns: list[str]) -> pl.DataFrame:
+    """Read SQL exports without inferring identifiers or country codes as numbers."""
+    schema: dict[str, type[pl.DataType]] = {column: pl.String for column in columns}
+    schema["pml"] = pl.Float64
+    if "is_geocoded" in columns:
+        schema["is_geocoded"] = pl.UInt8
+    data = pl.read_csv(path, schema_overrides=schema)
+    if data.columns != columns:
+        raise ValueError(f"{path}: expected CSV headers in order: {', '.join(columns)}")
+    if data.is_empty():
+        raise ValueError(f"{path}: the source export contains no data rows")
+    if data["pml"].null_count() or not data["pml"].is_finite().all():
+        raise ValueError(f"{path}: pml must contain finite numbers without blanks")
+    if "is_geocoded" in columns and (
+        data["is_geocoded"].null_count() or not data["is_geocoded"].is_in([0, 1]).all()
+    ):
+        raise ValueError(f"{path}: is_geocoded must contain 0 or 1")
+    return data
 
-    print_source_summary(source_data)
-    if source_output is not None:
-        write_csv(source_data, source_output)
-    if pra_raw_output is not None:
-        assert pra_source_data is not None
-        write_csv(build_pra_raw_output(pra_source_data), pra_raw_output)
-    if pra_aggregate_output is not None:
-        assert pra_source_data is not None
-        write_csv(build_pra_aggregate_output(pra_source_data), pra_aggregate_output)
-    final_output = build_bscr_output(source_data)
-    write_csv(final_output, output)
-    return final_output
+
+def run_pipeline(
+    input_dir: Path,
+    output_dir: Path,
+    process: str = "both",
+) -> dict[str, Path]:
+    """Calculate one snapshot/peril run from CSVs, without database access."""
+    if process not in ("bscr", "pra", "both"):
+        raise ValueError("process must be bscr, pra, or both")
+    if output_dir.exists() and (not output_dir.is_dir() or any(output_dir.iterdir())):
+        raise ValueError(f"{output_dir}: use a new or empty output directory")
+
+    # Load all requested inputs before creating any outputs.
+    bscr_source = (
+        load_source_csv(input_dir / "bscr-source.csv", SOURCE_COLUMNS)
+        if process in ("bscr", "both")
+        else None
+    )
+    pra_source = (
+        load_source_csv(input_dir / "pra-source.csv", PRA_RAW_COLUMNS)
+        if process in ("pra", "both")
+        else None
+    )
+    outputs: dict[str, Path] = {}
+    if bscr_source is not None:
+        print("BSCR source:", input_dir / "bscr-source.csv")
+        print_source_summary(bscr_source)
+        destination = output_dir / "bscr-output.csv"
+        write_csv(build_bscr_output(bscr_source), destination)
+        outputs["bscr"] = destination
+    if pra_source is not None:
+        print("PRA source:", input_dir / "pra-source.csv")
+        print_source_summary(pra_source)
+        raw_destination = output_dir / "pra-raw.csv"
+        aggregate_destination = output_dir / "pra-aggregate.csv"
+        write_csv(build_pra_raw_output(pra_source), raw_destination)
+        write_csv(build_pra_aggregate_output(pra_source), aggregate_destination)
+        outputs["pra_raw"] = raw_destination
+        outputs["pra_aggregate"] = aggregate_destination
+    return outputs
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Produce the BSCR UKEU aggregate CSV from SQL Server exposure data."
-    )
-    parser.add_argument("--server", default=DEFAULT_SERVER, help="SQL Server instance")
-    parser.add_argument(
-        "--database", default=DEFAULT_DATABASE, help="SQL Server database name"
+        description="Calculate BSCR/PRA outputs from SQL-exported CSV files; no database connection."
     )
     parser.add_argument(
-        "--encrypt",
-        choices=("yes", "no"),
-        default=DEFAULT_ENCRYPT,
-        help="ODBC connection encryption setting (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--trust-server-certificate",
-        choices=("yes", "no"),
-        default=DEFAULT_TRUST_SERVER_CERTIFICATE,
-        help="ODBC certificate trust setting (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--output",
+        "--input-dir",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help="output CSV path (default: %(default)s)",
+        required=True,
+        help="folder containing bscr-source.csv and/or pra-source.csv, with headers",
     )
     parser.add_argument(
-        "--peril",
-        type=int,
-        default=DEFAULT_PERIL,
-        help="loccvg peril code (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--policy-type",
-        type=int,
-        default=DEFAULT_POLICY_TYPE,
-        help="policy type code (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--source-output",
+        "--output-dir",
         type=Path,
-        help="optional geocoded BSCR account-level source CSV",
+        required=True,
+        help="new or empty folder for calculated CSV files",
     )
     parser.add_argument(
-        "--pra-raw-output",
-        type=Path,
-        help="optional PRA-shaped non-geocoded account-level source CSV",
-    )
-    parser.add_argument(
-        "--pra-aggregate-output",
-        type=Path,
-        help="optional five-column PRA pivot-input CSV",
+        "--process",
+        choices=("bscr", "pra", "both"),
+        default="both",
+        help="outputs to calculate (default: %(default)s); both requires both source CSVs",
     )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    args = build_argument_parser().parse_args(argv)
-    run_pipeline(
-        server=args.server,
-        database=args.database,
-        encrypt=args.encrypt,
-        trust_server_certificate=args.trust_server_certificate,
-        output=args.output,
-        peril=args.peril,
-        policy_type=args.policy_type,
-        source_output=args.source_output,
-        pra_raw_output=args.pra_raw_output,
-        pra_aggregate_output=args.pra_aggregate_output,
-    )
+    parser = build_argument_parser()
+    args = parser.parse_args(argv)
+    try:
+        outputs = run_pipeline(args.input_dir, args.output_dir, args.process)
+    except (OSError, ValueError, pl.exceptions.PolarsError) as error:
+        parser.exit(1, f"Error: {error}\n")
+    for destination in outputs.values():
+        print("Wrote:", destination)
 
 
 if __name__ == "__main__":
