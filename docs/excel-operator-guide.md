@@ -1,5 +1,6 @@
 # Excel-first operator workflow
 
+Download/open the [operator workbook](generated/Regulatory-Returns-Operator.xlsx).
 This is the supported operator workflow. It does not require Python, `uv`, or a local development environment.
 
 ## Required tools
