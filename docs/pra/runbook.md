@@ -62,6 +62,10 @@ Transfer reviewed pivot values only using an approved final-template cell map.
 Record each transfer and reviewer sign-off using the run checklist. The workbook's
 legacy BSCR panels are incomplete aids, not final PRA outputs.
 
+The same parameterized query can technically be run with `@peril = 4` and
+`@policy_type = 4` for an all-peril candidate. This is not yet an approved
+all-peril producer: confirm that codes `4/4` represent the required scope,
+source population, and workbook contract before use.
 For formulas, historical totals and diagnostics, use the
 [technical reference](technical-contract.md). For the known transfer boundary,
 use the [handoff trace](handoff.md).

@@ -1,4 +1,4 @@
--- PRA earthquake extraction query. Set cycle parameters before execution.
+-- PRA parameterized extraction query. Set cycle codes before execution.
 DECLARE @peril int = 2;
 DECLARE @policy_type int = 2;
 
@@ -96,7 +96,7 @@ cntrycode, country  from loc
 
 
 
-select sum(pml), state,userid1,cntrycode,uwritrname from policy_exposure
+select sum(pml) as pml, state,userid1,cntrycode,uwritrname from policy_exposure
 group by state,cntrycode,userid1,uwritrname
 
 
