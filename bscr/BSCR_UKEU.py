@@ -20,6 +20,7 @@ DEFAULT_SERVER = r"pr0503-14002-00\LMRMSINSURANCE"
 DEFAULT_DATABASE = "HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM"
 DEFAULT_ENCRYPT = "yes"
 DEFAULT_TRUST_SERVER_CERTIFICATE = "yes"
+DEFAULT_ODBC_DRIVER = "ODBC Driver 18 for SQL Server"
 DEFAULT_OUTPUT = Path("output.csv")
 DEFAULT_PERIL = 1
 DEFAULT_POLICY_TYPE = 1
@@ -250,10 +251,11 @@ def build_engine(
     database: str = DEFAULT_DATABASE,
     encrypt: str = DEFAULT_ENCRYPT,
     trust_server_certificate: str = DEFAULT_TRUST_SERVER_CERTIFICATE,
+    odbc_driver: str = DEFAULT_ODBC_DRIVER,
 ) -> Engine:
     """Create the SQLAlchemy engine without opening a connection."""
     odbc_connection_string = (
-        "Driver={ODBC Driver 18 for SQL Server};"
+        f"Driver={{{odbc_driver}}};"
         f"Server={server};"
         f"Database={database};"
         "Trusted_Connection=yes;"
