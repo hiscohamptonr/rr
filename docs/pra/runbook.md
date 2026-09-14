@@ -18,22 +18,15 @@ ODBC Driver 18 and SQL Server access. Confirm earthquake codes `2/2` for this cy
 
 ## 2. Extract earthquake data
 
-Run from the repository root. Replace the placeholders; use a new run folder.
+Use the Excel-first workflow in [the operator guide](../excel-operator-guide.md).
+In the approved SQL client or workbook Power Query, execute
+`pra/sql/pra-earthquake.sql` after confirming the earthquake peril and policy
+type codes for this cycle. Export the result with headers and load the approved
+raw and aggregate workbook ranges.
 
-```bash
-uv sync --locked
-uv run python bscr/BSCR_UKEU.py \
-  --server '<approved-server>' --database '<approved-edm>' \
-  --peril 2 --policy-type 2 \
-  --output '<run-dir>/bscr-2-2-control.csv' \
-  --source-output '<run-dir>/bscr-2-2-source.csv' \
-  --pra-raw-output '<run-dir>/pra-eq-raw.csv' \
-  --pra-aggregate-output '<run-dir>/pra-eq-aggregate.csv'
-```
+Keep the raw export, query revision, server/database, row count and run record.
+If the query fails or expected columns are missing, do not load partial results.
 
-Keep all four files and the run log. If the command fails or a file is missing,
-do not load partial results. The two BSCR files are supporting controls, not
-substitutes for the PRA amounts.
 
 ## 3. Load the workbook
 

@@ -23,19 +23,15 @@ Use working copies of:
 
 ## 2. Extract the data
 
-Run from the repository root. Replace the placeholders; use a new run folder.
+Use the Excel-first workflow in [the operator guide](../excel-operator-guide.md).
+In the approved SQL client or workbook Power Query, execute
+`bscr/sql/bscr-extract.sql` after setting `@peril` and `@policy_type` to the
+approved cycle values. Export the result with its headers, then load it into
+the calculation workbook's `Sheet1` input range.
 
-```bash
-uv sync --locked
-uv run python bscr/BSCR_UKEU.py \
-  --server '<approved-server>' --database '<approved-edm>' \
-  --peril 1 --policy-type 1 \
-  --output '<run-dir>/bscr-output.csv' \
-  --source-output '<run-dir>/bscr-source.csv'
-```
+Keep the raw export, query revision, server/database, row count and run record.
+If the query fails or the expected columns are missing, do not load partial results.
 
-Keep both CSVs and the run log. If the command fails or either file is missing,
-do not load partial results.
 
 ## 3. Load the calculation workbook
 
