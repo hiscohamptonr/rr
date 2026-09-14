@@ -21,33 +21,17 @@ IDs, polygon validity, coordinates and independent EDM totals. Use a **new,
 empty output folder**: files are written individually, so reusing a folder can
 mix results from different runs.
 
-## 2. Install and run
+## 2. Current operator boundary
 
-From the repository root:
+There is currently no approved no-Python SQL/Excel route for the spatial
+calculation. Do not install Python or `uv`, and do not run this route as an
+operator workflow. The checked-in implementation remains
+`globalexposures/exposures.py` and is maintainer/developer-only pending an
+approved SQL Server spatial implementation.
 
-```bash
-uv sync --project globalexposures --locked
-uv run --project globalexposures python globalexposures/exposures.py --help
-```
+Do not load or deliver Global Exposures results from the current repository
+without that implementation, its validation evidence, and owner approval.
 
-Run all events with the approved configuration:
-
-```bash
-uv run --project globalexposures python globalexposures/exposures.py \
-  --output-dir '<new-run-folder>'
-```
-
-Or select an event and approved overrides (replace the example values):
-
-```bash
-uv run --project globalexposures python globalexposures/exposures.py \
-  --event-id 123 --peril 4 --portnum PORTFOLIO_NUMBER \
-  --output-dir '<new-run-folder>'
-```
-
-Do **not** use `--allow-missing-pml` for production: unknown loss can appear as
-zero with a successful status. Exit `1` means pipeline failure; `2` means at
-least one selected event failed. Do not deliver partial results.
 
 ## 3. Check the CSV pack
 

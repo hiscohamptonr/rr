@@ -1,6 +1,9 @@
 # Global Exposures — technical contract
 
 [Start here](../../README.md) · [Runbook](runbook.md) ·
+**Operator status:** this route is not available without Python. The implementation
+and commands below are maintainer/developer reference only, not an operator
+procedure. An approved SQL Server spatial replacement is still required.
 [Shared controls](../operating-controls.md) · [Open decisions](../decisions.md#global-01)
 
 This is the observed implementation contract for `globalexposures/exposures.py`.

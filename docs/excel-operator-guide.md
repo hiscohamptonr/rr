@@ -25,7 +25,10 @@ Open the workbook's `Config` sheet and record:
 | Policy type | approved cycle code | approved EDM policy type |
 | Reporting period | approved value | approved value |
 
-Use the workbook's Power Query connection properties to select the server and database. Do not place credentials in the workbook or run log.
+Use the workbook as an import/control template. It does not contain embedded
+Power Query connections; the approved SQL client exports must be loaded into the
+raw tabs until a connection-enabled workbook is approved. Do not place
+credentials in the workbook or run log.
 
 ## Refresh sequence
 
@@ -43,8 +46,7 @@ A successful refresh is not approval and does not prove that the return is compl
 
 ## SQL assets
 
-- `bscr/sql/bscr-extract.sql` — BSCR source extraction; review `@peril` and `@policy_type`.
-- `pra/sql/pra-earthquake.sql` — PRA earthquake source extraction; review the hard-coded cycle codes before execution.
+- `pra/sql/pra-earthquake.sql` — canonical parameterized PRA earthquake extraction; review `@peril` and `@policy_type`.
 - `lloyds/sql/*.sql` — Lloyd's supplementary source routes; execute in the approved SQL client and retain exported results.
 - `dataiku/Dataiku-Aggs.sql` — Dataiku/Databricks SQL only; not a SQL Server query.
 
