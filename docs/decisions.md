@@ -188,7 +188,7 @@ Resolve policy-limit-as-factor and portfolio membership semantics; Fine Art
 matching; PML validity and missing-data handling; geometry/coordinate
 rejections; independent zero-impact evidence; complete output publication and
 provenance. Provide the external pre/post-join controls currently required by
-the runbook. Do not use `--allow-missing-pml` to bypass unknown loss.
+the runbook. Do not disable `fail_on_missing_pml` to bypass unknown loss.
 
 **Close with:** approved methodology/producer and a reconciled CSV output pack
 with manifest and event-level evidence. No final Excel cell map is applicable.

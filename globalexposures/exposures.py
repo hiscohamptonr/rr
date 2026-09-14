@@ -1,125 +1,85 @@
-"""Run geospatial event-loss calculations and write the CSV output pack.
+"""Calculate event exposures locally from four SQL-exported CSV files.
 
-External data sources:
-- The ``GlobalExposures`` Microsoft SQL Server database (by default on
-  ``PR0603-41001-00``): ``data.Events``, ``data.ShapeFiles``, and ``data.PML``.
-- The configured EDM Microsoft SQL Server database (by default
-  ``HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM`` on
-  ``prod-lmrmsinsurance-db\\LMRMSinsurance``): ``dbo.loc``, ``dbo.loccvg``,
-  ``dbo.policy``, ``dbo.accgrp``, ``dbo.portacct``, and ``dbo.portinfo``.
-
-The pipeline consumes no input files or other external data feeds. Run all
-configured events with ``python globalexposures/exposures.py`` or select one
-with ``--event-id``.
+Run the scripts in globalexposures/sql on the appropriate database servers,
+export with headers, then set the file paths below and run this file.
+Python never connects to a database or reads a workbook.
 """
 
 from __future__ import annotations
 
-import argparse
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote_plus
 
 import geopandas as gpd
 import pandas as pd
-import sqlalchemy as sa
 from shapely.geometry import Point, Polygon
-from sqlalchemy.exc import SQLAlchemyError
+
+# EDIT THESE PATHS BEFORE RUNNING; each input includes its CSV filename.
+EVENTS_INPUT_CSV = Path(__file__).with_name("events.csv")
+SHAPE_POINTS_INPUT_CSV = Path(__file__).with_name("shape-points.csv")
+PML_INPUT_CSV = Path(__file__).with_name("pml.csv")
+EDM_INPUT_CSV = Path(__file__).with_name("edm-exposures.csv")
+OUTPUT_DIR = Path(__file__).with_name("global_exposures_outputs")
+EVENT_ID_TO_RUN: int | None = None  # None means all events in the CSV.
 
 
-# Default run configuration; CLI arguments override these values.
 @dataclass(frozen=True)
 class RunConfig:
-    global_exposures_server: str = "PR0603-41001-00"
-    global_exposures_db: str = "GlobalExposures"
-    edm_server: str = r"prod-lmrmsinsurance-db\LMRMSinsurance"
-    edm_db: str = "HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM"
-    odbc_driver: str = "ODBC Driver 17 for SQL Server"
-
-    # This value is applied to both loccvg.PERIL and policy.POLICYTYPE.
-    # Confirm the required peril before production use. The previous notebook's
-    # comment said 1 while its actual configured value was 4; this keeps the
-    # actual behaviour (4) and removes the misleading comment.
-    edm_peril_to_use: int = 4
-
-    # None means all events. An integer means one event only.
-    event_id_to_run: int | None = None
-    portnum_filter: str | None = None
-    output_dir: Path = Path("global_exposures_outputs")
+    events_csv: Path = EVENTS_INPUT_CSV
+    shape_points_csv: Path = SHAPE_POINTS_INPUT_CSV
+    pml_csv: Path = PML_INPUT_CSV
+    edm_csv: Path = EDM_INPUT_CSV
+    event_id_to_run: int | None = EVENT_ID_TO_RUN
+    output_dir: Path = OUTPUT_DIR
     crs_wgs84: str = "EPSG:4326"
-
-    # A missing polygon PML makes that event fail rather than silently writing
-    # null losses.
     fail_on_missing_pml: bool = True
 
 
 CONFIG = RunConfig()
 
 
-@dataclass(frozen=True)
-class SqlConfig:
-    server: str
-    database: str
-    driver: str
-    trusted_connection: bool = True
-    trust_server_certificate: bool = True
+EVENT_COLUMNS = {
+    "EventID": "Int64",
+    "EventName": "string",
+    "EventDescription": "string",
+}
+SHAPE_COLUMNS = {
+    "ShapefileID": "string",
+    "EventID": "Int64",
+    "PolygonID": "Int64",
+    "Lat": "float64",
+    "Long": "float64",
+    "DrawOrder": "Int64",
+}
+PML_COLUMNS = {"EventID": "Int64", "PolygonID": "Int64", "PML": "float64"}
+EDM_COLUMNS = {
+    "CEDANTID": "string",
+    "PORTACCTID": "string",
+    "PERIL": "Int64",
+    "LOCID": "string",
+    "LOCNUM": "string",
+    "LATITUDE": "float64",
+    "LONGITUDE": "float64",
+    "GroundUpTIV": "float64",
+    "PolicyAdjustedTIV": "float64",
+    "CountryCode": "string",
+    "CurrencyCode": "string",
+    "PORTNAME": "string",
+    "PORTNUM": "string",
+    "POLICY_LINE_FACTOR": "float64",
+    "FA_QS_SRP_FACTOR": "float64",
+    "Coverage": "string",
+}
 
 
-def make_sql_server_engine(config: SqlConfig) -> sa.Engine:
-    trusted = "yes" if config.trusted_connection else "no"
-    trust_cert = "yes" if config.trust_server_certificate else "no"
-    connection_string = (
-        f"DRIVER={{{config.driver}}};"
-        f"SERVER={config.server};"
-        f"DATABASE={config.database};"
-        f"Trusted_Connection={trusted};"
-        f"TrustServerCertificate={trust_cert};"
+def read_source_csv(path: Path, columns: dict[str, str]) -> pd.DataFrame:
+    """Read headers and types explicitly, preserving identifier zeros and country NA."""
+    frame = pd.read_csv(
+        path, dtype=columns, keep_default_na=False, na_values=[""], encoding="utf-8-sig"
     )
-    return sa.create_engine(
-        f"mssql+pyodbc:///?odbc_connect={quote_plus(connection_string)}",
-        fast_executemany=True,
-    )
-
-
-def test_sql_connection(engine: sa.Engine) -> pd.DataFrame:
-    sql = """
-        SELECT
-            @@SERVERNAME AS ServerName,
-            DB_NAME() AS DatabaseName,
-            SUSER_SNAME() AS LoginName,
-            SYSDATETIME() AS ServerDateTime
-    """
-    return pd.read_sql(sql, engine)
-
-
-def read_global_exposure_events(engine: sa.Engine) -> pd.DataFrame:
-    return pd.read_sql(
-        """
-        SELECT EventID, EventName, EventDescription
-        FROM data.Events
-        ORDER BY EventID
-        """,
-        engine,
-    )
-
-
-def read_global_exposure_shape_points(engine: sa.Engine, event_id: int) -> pd.DataFrame:
-    sql = sa.text("""
-        SELECT ShapefileID, EventID, PolygonID, Lat, Long, DrawOrder
-        FROM data.ShapeFiles
-        WHERE EventID = :event_id
-        ORDER BY EventID, PolygonID, DrawOrder
-    """)
-    return pd.read_sql(sql, engine, params={"event_id": int(event_id)})
-
-
-def read_global_exposure_pmls(engine: sa.Engine, event_id: int) -> pd.DataFrame:
-    sql = sa.text("""
-        SELECT EventID, PolygonID, PML
-        FROM data.PML
-        WHERE EventID = :event_id
-    """)
-    return pd.read_sql(sql, engine, params={"event_id": int(event_id)})
+    if list(frame.columns) != list(columns):
+        raise ValueError(f"{path}: expected CSV headers in order: {', '.join(columns)}")
+    return frame
 
 
 def select_events(events: pd.DataFrame, event_id_to_run: int | None) -> pd.DataFrame:
@@ -138,8 +98,7 @@ def select_events(events: pd.DataFrame, event_id_to_run: int | None) -> pd.DataF
     )
     if selected.empty:
         raise ValueError(
-            f"EVENT_ID_TO_RUN={event_id_to_run} was not found in "
-            "GlobalExposures.data.Events"
+            f"EVENT_ID_TO_RUN={event_id_to_run} was not found in the events CSV"
         )
     return selected
 
@@ -191,78 +150,6 @@ def shape_points_to_polygons(
     return gdf
 
 
-def read_edm_exposures_cte(
-    engine: sa.Engine,
-    peril_to_use: int,
-    portnum_filter: str | None,
-) -> pd.DataFrame:
-    line_factor_case = """
-        CASE WHEN POL.BLANLIMAMT = 0 THEN 1 ELSE POL.BLANLIMAMT END
-    """
-    fa_qs_srp_case = """
-        CASE
-            WHEN PI.Portnum LIKE '%_QS' AND PI.Portnum LIKE '%_FA_%' THEN 0.5
-            WHEN PI.Portnum LIKE '%_SRP' AND PI.Portnum LIKE '%_FA_%' THEN 0.3333333
-            ELSE 1.0
-        END
-    """
-    sql = sa.text(f"""
-        WITH locs AS (
-            SELECT
-                L.LOCID, L.ACCGRPID, L.LOCNUM, L.LATITUDE, L.LONGITUDE,
-                L.CNTRYCODE AS CountryCode, LC.PERIL,
-                LC.VALUECUR AS CurrencyCode,
-                SUM(LC.VALUEAMT) AS GroundUpTIV
-            FROM dbo.loc L
-            JOIN dbo.loccvg LC ON LC.LOCID = L.LOCID
-            WHERE LC.PERIL = :peril_to_use
-            GROUP BY
-                L.LOCID, L.ACCGRPID, L.LOCNUM, L.LATITUDE, L.LONGITUDE,
-                L.CNTRYCODE, LC.PERIL, LC.VALUECUR
-        ),
-        policy_terms AS (
-            SELECT
-                POL.ACCGRPID, POL.POLICYTYPE AS PERIL,
-                MAX({line_factor_case}) AS POLICY_LINE_FACTOR
-            FROM dbo.policy POL
-            WHERE POL.POLICYTYPE = :peril_to_use
-            GROUP BY POL.ACCGRPID, POL.POLICYTYPE
-        ),
-        account_portfolio AS (
-            SELECT
-                A.ACCGRPID, A.CEDANTID, PA.PORTACCTID,
-                UPPER(PI.PORTNAME) AS PORTNAME, PI.Portnum AS PORTNUM,
-                {fa_qs_srp_case} AS FA_QS_SRP_FACTOR
-            FROM dbo.accgrp A
-            JOIN dbo.portacct PA ON PA.ACCGRPID = A.ACCGRPID
-            JOIN dbo.portinfo PI ON PI.PORTINFOID = PA.PORTINFOID
-            WHERE (:portnum_filter IS NULL OR PI.Portnum = :portnum_filter)
-        )
-        SELECT
-            AP.CEDANTID, AP.PORTACCTID, L.PERIL, L.LOCID, L.LOCNUM,
-            L.LATITUDE, L.LONGITUDE, L.GroundUpTIV,
-            L.GroundUpTIV * COALESCE(PT.POLICY_LINE_FACTOR, 1.0)
-                * AP.FA_QS_SRP_FACTOR AS PolicyAdjustedTIV,
-            L.CountryCode, L.CurrencyCode, AP.PORTNAME, AP.PORTNUM,
-            COALESCE(PT.POLICY_LINE_FACTOR, 1.0) AS POLICY_LINE_FACTOR,
-            AP.FA_QS_SRP_FACTOR, 'ALL' AS Coverage
-        FROM locs L
-        JOIN account_portfolio AP ON AP.ACCGRPID = L.ACCGRPID
-        LEFT JOIN policy_terms PT
-            ON PT.ACCGRPID = L.ACCGRPID AND PT.PERIL = L.PERIL
-    """)
-    df = pd.read_sql(
-        sql,
-        engine,
-        params={
-            "peril_to_use": int(peril_to_use),
-            "portnum_filter": portnum_filter,
-        },
-    )
-    df["TIV"] = df["PolicyAdjustedTIV"]
-    return df
-
-
 def exposures_to_points(exposures: pd.DataFrame, crs: str) -> gpd.GeoDataFrame:
     required = {"LOCID", "LATITUDE", "LONGITUDE", "GroundUpTIV", "PolicyAdjustedTIV"}
     missing = required.difference(exposures.columns)
@@ -284,14 +171,13 @@ def exposures_to_points(exposures: pd.DataFrame, crs: str) -> gpd.GeoDataFrame:
 
 
 def load_event_polygons(
-    engine: sa.Engine,
+    shape_points: pd.DataFrame,
+    pmls: pd.DataFrame,
     event_id: int,
     crs: str,
     fail_on_missing_pml: bool,
 ) -> tuple[gpd.GeoDataFrame, pd.DataFrame, pd.DataFrame]:
-    shape_points = read_global_exposure_shape_points(engine, event_id)
     polygons = shape_points_to_polygons(shape_points, crs)
-    pmls = read_global_exposure_pmls(engine, event_id)
     polygons_with_pml = polygons.merge(pmls, on=["EventID", "PolygonID"], how="left")
     if fail_on_missing_pml and not polygons_with_pml.empty:
         missing = polygons_with_pml["PML"].isna()
@@ -442,213 +328,153 @@ def write_frame(df: pd.DataFrame, path: Path) -> None:
 
 
 def run_pipeline(config: RunConfig = CONFIG) -> dict[str, object]:
-    """Run one event or every event and write the complete output pack."""
+    """Calculate the selected events from CSVs and write the output pack."""
     output_dir = Path(config.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if output_dir.exists() and (not output_dir.is_dir() or any(output_dir.iterdir())):
+        raise ValueError(f"{output_dir}: use a new or empty output directory")
 
-    global_engine = make_sql_server_engine(
-        SqlConfig(
-            config.global_exposures_server,
-            config.global_exposures_db,
-            config.odbc_driver,
-        )
-    )
-    edm_engine = make_sql_server_engine(
-        SqlConfig(config.edm_server, config.edm_db, config.odbc_driver)
-    )
+    # Read every required export before creating output files.
+    events = read_source_csv(config.events_csv, EVENT_COLUMNS)
+    shape_points = read_source_csv(config.shape_points_csv, SHAPE_COLUMNS)
+    pmls = read_source_csv(config.pml_csv, PML_COLUMNS)
+    edm_exposures = read_source_csv(config.edm_csv, EDM_COLUMNS)
+    edm_exposures["TIV"] = edm_exposures["PolicyAdjustedTIV"]
+    selected_events = select_events(events, config.event_id_to_run)
+    if selected_events.empty:
+        raise RuntimeError("No events were selected; nothing can be run")
+    exposure_points = exposures_to_points(edm_exposures, config.crs_wgs84)
+    shapes_by_event = shape_points.groupby("EventID", sort=False)
+    pmls_by_event = pmls.groupby("EventID", sort=False)
 
-    try:
-        global_connection_check = test_sql_connection(global_engine)
-        edm_connection_check = test_sql_connection(edm_engine)
-
-        events = read_global_exposure_events(global_engine)
-        selected_events = select_events(events, config.event_id_to_run)
-        if selected_events.empty:
-            raise RuntimeError("No events were selected; nothing can be run")
-
-        edm_exposures = read_edm_exposures_cte(
-            edm_engine,
-            config.edm_peril_to_use,
-            config.portnum_filter,
-        )
-        exposure_points = exposures_to_points(edm_exposures, config.crs_wgs84)
-
-        all_location_rows: list[pd.DataFrame] = []
-        run_log_rows: list[dict] = []
-        error_rows: list[dict] = []
-
-        for row in selected_events.itertuples(index=False):
-            event_id = int(row.EventID)
-            event_name = str(row.EventName)
-            try:
-                polygons, shape_points, _ = load_event_polygons(
-                    global_engine,
-                    event_id,
-                    config.crs_wgs84,
-                    config.fail_on_missing_pml,
-                )
-                if shape_points.empty or polygons.empty:
-                    run_log_rows.append(
-                        {
-                            "EventID": event_id,
-                            "EventName": event_name,
-                            "Status": "No polygons",
-                            "Rows": 0,
-                        }
-                    )
-                    continue
-
-                impacted = intersect_exposure_rows_with_polygons(
-                    exposure_points, polygons
-                )
-                if impacted.empty:
-                    run_log_rows.append(
-                        {
-                            "EventID": event_id,
-                            "EventName": event_name,
-                            "Status": "No impacted exposures",
-                            "Rows": 0,
-                        }
-                    )
-                    continue
-
-                impacted["EventName"] = event_name
-                impacted["SelectedPeril"] = impacted["PERIL"]
-                all_location_rows.append(
-                    pd.DataFrame(impacted.drop(columns="geometry"))
-                )
+    all_location_rows: list[pd.DataFrame] = []
+    run_log_rows: list[dict] = []
+    error_rows: list[dict] = []
+    for row in selected_events.itertuples(index=False):
+        event_id = int(row.EventID)
+        event_name = str(row.EventName)
+        try:
+            event_shapes = (
+                shapes_by_event.get_group(event_id)
+                if event_id in shapes_by_event.indices
+                else shape_points.iloc[:0]
+            )
+            event_pmls = (
+                pmls_by_event.get_group(event_id)
+                if event_id in pmls_by_event.indices
+                else pmls.iloc[:0]
+            )
+            polygons, _, _ = load_event_polygons(
+                event_shapes,
+                event_pmls,
+                event_id,
+                config.crs_wgs84,
+                config.fail_on_missing_pml,
+            )
+            if event_shapes.empty or polygons.empty:
                 run_log_rows.append(
                     {
                         "EventID": event_id,
                         "EventName": event_name,
-                        "Status": "Success",
-                        "Rows": len(impacted),
-                    }
-                )
-            # Each event is an isolation boundary; retain any failure in the
-            # output pack and continue processing the remaining configured events.
-            except Exception as exc:  # noqa: BLE001
-                error_rows.append(
-                    {
-                        "EventID": event_id,
-                        "EventName": event_name,
-                        "Error": f"{type(exc).__name__}: {exc}",
-                    }
-                )
-                run_log_rows.append(
-                    {
-                        "EventID": event_id,
-                        "EventName": event_name,
-                        "Status": "Error",
+                        "Status": "No polygons",
                         "Rows": 0,
                     }
                 )
+                continue
 
-        location_rows = (
-            pd.concat(all_location_rows, ignore_index=True)
-            if all_location_rows
-            else pd.DataFrame()
-        )
-        run_log = pd.DataFrame(run_log_rows)
-        error_log = pd.DataFrame(error_rows, columns=["EventID", "EventName", "Error"])
-        account_breakdown = build_account_breakdown(location_rows)
-        location_breakout = build_location_breakout(location_rows)
-        summary = build_run_summary(selected_events, run_log, location_rows)
+            impacted = intersect_exposure_rows_with_polygons(exposure_points, polygons)
+            if impacted.empty:
+                run_log_rows.append(
+                    {
+                        "EventID": event_id,
+                        "EventName": event_name,
+                        "Status": "No impacted exposures",
+                        "Rows": 0,
+                    }
+                )
+                continue
+            impacted["EventName"] = event_name
+            impacted["SelectedPeril"] = impacted["PERIL"]
+            all_location_rows.append(pd.DataFrame(impacted.drop(columns="geometry")))
+            run_log_rows.append(
+                {
+                    "EventID": event_id,
+                    "EventName": event_name,
+                    "Status": "Success",
+                    "Rows": len(impacted),
+                }
+            )
+        # Keep event failures visible while calculating the remaining events.
+        except Exception as exc:  # noqa: BLE001
+            error_rows.append(
+                {
+                    "EventID": event_id,
+                    "EventName": event_name,
+                    "Error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            run_log_rows.append(
+                {
+                    "EventID": event_id,
+                    "EventName": event_name,
+                    "Status": "Error",
+                    "Rows": 0,
+                }
+            )
 
-        prefix = (
-            "all_events"
-            if config.event_id_to_run is None
-            else f"event_{config.event_id_to_run}"
-        )
-        paths = {
-            "summary": output_dir / f"{prefix}_summary.csv",
-            "run_log": output_dir / f"{prefix}_run_log.csv",
-            "error_log": output_dir / f"{prefix}_error_log.csv",
-            "location_rows": output_dir / f"{prefix}_location_rows.csv",
-            "account_breakdown": output_dir / f"{prefix}_account_breakdown.csv",
-            "location_breakout": output_dir / f"{prefix}_location_breakout.csv",
-            "edm_exposures": output_dir / "edm_exposures.csv",
-        }
-        write_frame(summary, paths["summary"])
-        write_frame(run_log, paths["run_log"])
-        write_frame(error_log, paths["error_log"])
-        write_frame(location_rows, paths["location_rows"])
-        write_frame(account_breakdown, paths["account_breakdown"])
-        write_frame(location_breakout, paths["location_breakout"])
-        write_frame(edm_exposures, paths["edm_exposures"])
-
-        return {
-            "config": config,
-            "global_connection_check": global_connection_check,
-            "edm_connection_check": edm_connection_check,
-            "events": events,
-            "selected_events": selected_events,
-            "edm_exposures": edm_exposures,
-            "location_rows": location_rows,
-            "account_breakdown": account_breakdown,
-            "location_breakout": location_breakout,
-            "run_log": run_log,
-            "error_log": error_log,
-            "summary": summary,
-            "paths": paths,
-            "has_errors": not error_log.empty,
-        }
-    finally:
-        global_engine.dispose()
-        edm_engine.dispose()
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run Global Exposures event losses and write the output pack."
+    location_rows = (
+        pd.concat(all_location_rows, ignore_index=True)
+        if all_location_rows
+        else pd.DataFrame()
     )
-    scope = parser.add_mutually_exclusive_group()
-    scope.add_argument("--event-id", type=int, help="Run one EventID only")
-    scope.add_argument(
-        "--all-events",
-        action="store_true",
-        help="Run all events (the default)",
+    run_log = pd.DataFrame(run_log_rows)
+    error_log = pd.DataFrame(error_rows, columns=["EventID", "EventName", "Error"])
+    account_breakdown = build_account_breakdown(location_rows)
+    location_breakout = build_location_breakout(location_rows)
+    summary = build_run_summary(selected_events, run_log, location_rows)
+    prefix = (
+        "all_events"
+        if config.event_id_to_run is None
+        else f"event_{config.event_id_to_run}"
     )
-    parser.add_argument("--portnum", help="Optional exact PORTNUM filter")
-    parser.add_argument("--peril", type=int, help="Override the configured EDM peril")
-    parser.add_argument("--output-dir", type=Path, help="Override the output directory")
-    parser.add_argument(
-        "--allow-missing-pml",
-        action="store_true",
-        help="Allow polygons with missing PML instead of failing that event",
-    )
-    return parser.parse_args()
+    paths = {
+        "summary": output_dir / f"{prefix}_summary.csv",
+        "run_log": output_dir / f"{prefix}_run_log.csv",
+        "error_log": output_dir / f"{prefix}_error_log.csv",
+        "location_rows": output_dir / f"{prefix}_location_rows.csv",
+        "account_breakdown": output_dir / f"{prefix}_account_breakdown.csv",
+        "location_breakout": output_dir / f"{prefix}_location_breakout.csv",
+        "edm_exposures": output_dir / "edm_exposures.csv",
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    write_frame(summary, paths["summary"])
+    write_frame(run_log, paths["run_log"])
+    write_frame(error_log, paths["error_log"])
+    write_frame(location_rows, paths["location_rows"])
+    write_frame(account_breakdown, paths["account_breakdown"])
+    write_frame(location_breakout, paths["location_breakout"])
+    write_frame(edm_exposures, paths["edm_exposures"])
+
+    return {
+        "config": config,
+        "events": events,
+        "selected_events": selected_events,
+        "edm_exposures": edm_exposures,
+        "location_rows": location_rows,
+        "account_breakdown": account_breakdown,
+        "location_breakout": location_breakout,
+        "run_log": run_log,
+        "error_log": error_log,
+        "summary": summary,
+        "paths": paths,
+        "has_errors": not error_log.empty,
+    }
 
 
 def main() -> int:
-    args = parse_args()
-    event_id_to_run = (
-        None
-        if args.all_events
-        else args.event_id
-        if args.event_id is not None
-        else CONFIG.event_id_to_run
-    )
-    config = replace(
-        CONFIG,
-        event_id_to_run=event_id_to_run,
-        portnum_filter=(
-            args.portnum if args.portnum is not None else CONFIG.portnum_filter
-        ),
-        edm_peril_to_use=(
-            args.peril if args.peril is not None else CONFIG.edm_peril_to_use
-        ),
-        output_dir=(
-            args.output_dir if args.output_dir is not None else CONFIG.output_dir
-        ),
-        fail_on_missing_pml=(
-            False if args.allow_missing_pml else CONFIG.fail_on_missing_pml
-        ),
-    )
 
     try:
-        results = run_pipeline(config)
-    except (SQLAlchemyError, OSError, ValueError, RuntimeError) as exc:
+        results = run_pipeline(CONFIG)
+    except (OSError, ValueError, RuntimeError) as exc:
         print(f"FAILED: {type(exc).__name__}: {exc}")
         return 1
 

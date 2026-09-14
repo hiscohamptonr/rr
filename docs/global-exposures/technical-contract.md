@@ -1,54 +1,57 @@
 # Global Exposures — technical contract
 
-[Start here](../../README.md) · [Runbook](runbook.md) ·
-**Operator status:** this route is not available without Python. The implementation
-and commands below are maintainer/developer reference only, not an operator
-procedure. An approved SQL Server spatial replacement is still required.
-[Shared controls](../operating-controls.md) · [Open decisions](../decisions.md#global-01)
-
-This is the observed implementation contract for `globalexposures/exposures.py`.
-It supports review and test design; it is **not** approval to operate the
-pipeline in production. The runbook is the only operator route. GLOBAL-01 and
-COMMON-01 remain open.
+This contract describes the CSV route implemented by
+`globalexposures/exposures.py`. SQL extraction is a separate preparation step;
+the Python process reads local CSV files and does not connect to either
+database, require a database driver, or accept CLI options.
 
 ## Inputs and configuration
 
-The default `RunConfig` connects with integrated SQL Server authentication to:
+Run these standalone SQL files and export the results with the stated names:
 
-- Global Exposures server `PR0603-41001-00`, database `GlobalExposures`, tables
-  `data.Events`, `data.ShapeFiles`, and `data.PML`;
-- EDM server `prod-lmrmsinsurance-db\\LMRMSinsurance`, database
-  `HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM`, tables `dbo.loc`,
-  `dbo.loccvg`, `dbo.policy`, `dbo.accgrp`, `dbo.portacct`, and `dbo.portinfo`.
+| SQL file | Database | CSV and required columns |
+|---|---|---|
+| `events.sql` | `GlobalExposures` | `events.csv`: `EventID`, `EventName`, `EventDescription` |
+| `shape-points.sql` | `GlobalExposures` | `shape-points.csv`: `ShapefileID`, `EventID`, `PolygonID`, `Lat`, `Long`, `DrawOrder` |
+| `pml.sql` | `GlobalExposures` | `pml.csv`: `EventID`, `PolygonID`, `PML` |
+| `edm-exposures.sql` | selected EDM snapshot | `edm-exposures.csv`: `CEDANTID`, `PORTACCTID`, `PERIL`, `LOCID`, `LOCNUM`, `LATITUDE`, `LONGITUDE`, `GroundUpTIV`, `PolicyAdjustedTIV`, `CountryCode`, `CurrencyCode`, `PORTNAME`, `PORTNUM`, `POLICY_LINE_FACTOR`, `FA_QS_SRP_FACTOR`, `Coverage` |
 
-The default ODBC driver is `ODBC Driver 17 for SQL Server`; trusted connection
-and server-certificate trust are enabled in the SQL connection string. The
-configured peril is `4`, applied to both `loccvg.PERIL` and `policy.POLICYTYPE`.
-`event_id_to_run=None` selects all events, `portnum_filter=None` selects all
-portfolios, output defaults to `global_exposures_outputs`, and the CRS is
-`EPSG:4326`. Missing PML fails an event by default (`fail_on_missing_pml=True`).
-CLI arguments override these defaults:
+The first three SQL files have optional `@event_id int = NULL`; `NULL` exports
+all events. The same event selection must be used for all three. The EDM file
+has `@peril_to_use int = 4` and
+`@portnum_filter nvarchar(255) = NULL`; these preserve the original peril and
+portfolio-filter semantics. The EDM projection uses the exact 16-column
+order above; Python derives the `TIV` alias from `PolicyAdjustedTIV`.
 
-```bash
-uv sync --project globalexposures --locked
-uv run --project globalexposures python globalexposures/exposures.py --help
-uv run --project globalexposures python globalexposures/exposures.py \
-  --output-dir '<new-run-specific-directory>'
-uv run --project globalexposures python globalexposures/exposures.py \
-  --event-id 123 --peril 4 --portnum PORTFOLIO_NUMBER \
-  --output-dir '<new-run-specific-directory>'
+The editable constants at the top of `exposures.py` are:
+
+```python
+EVENTS_INPUT_CSV = Path(__file__).with_name("events.csv")
+SHAPE_POINTS_INPUT_CSV = Path(__file__).with_name("shape-points.csv")
+PML_INPUT_CSV = Path(__file__).with_name("pml.csv")
+EDM_INPUT_CSV = Path(__file__).with_name("edm-exposures.csv")
+OUTPUT_DIR = Path(__file__).with_name("global_exposures_outputs")
+EVENT_ID_TO_RUN = None
 ```
 
-`--event-id` and `--all-events` are mutually exclusive; the default is the
-configured event selection, which is all events. `--allow-missing-pml` changes
-the missing-PML failure gate and is not an approved production option. The
-script consumes no input spreadsheets, flat files, or other external feeds.
+Each input may instead be any configured full path. `EVENT_ID_TO_RUN=None`
+selects all events; an integer selects one event. Run from `globalexposures/`
+with the dependency cache rather than a local virtual environment:
+
+```bash
+uv run --no-project --with-requirements requirements.txt python exposures.py
+```
+
+Inputs must be header-bearing CSVs with the columns above. Header-only shape or
+PML files can be valid exports when the selected scope has no rows; missing
+shape data and every no-impact result require independent review. Use one
+matching snapshot, event scope, and peril scope across all inputs.
 
 ## EDM query and calculation
 
-The query first groups `dbo.loccvg.VALUEAMT` by location, account group,
-location number, coordinates, country, peril, and currency after filtering the
-selected peril. This gives:
+`edm-exposures.sql` first groups `dbo.loccvg.VALUEAMT` by location, account
+group, location number, coordinates, country, peril, and currency after
+filtering the selected peril:
 
 ```text
 GroundUpTIV = SUM(loccvg.VALUEAMT)
@@ -60,10 +63,10 @@ Policy terms group `dbo.policy` by `ACCGRPID` and `POLICYTYPE`, retaining:
 PolicyFactor = MAX(CASE BLANLIMAMT WHEN 0 THEN 1 ELSE BLANLIMAMT END)
 ```
 
-`BLANLIMAMT` is a field named as a monetary limit, but current code uses it as a
-multiplicative factor. A missing policy match is defaulted to `1.0`. The
-account/portfolio CTE joins `accgrp` to `portacct` and `portinfo`; an optional
-exact `PORTNUM` filter is applied there. Fine Art QS/SRP logic is:
+`BLANLIMAMT` is named as a monetary limit, but this implementation uses it as a
+multiplicative factor. A missing policy match defaults to `1.0`. The
+account/portfolio query joins `accgrp` to `portacct` and `portinfo`; an exact
+optional `PORTNUM` filter is applied there. Fine Art QS/SRP logic is:
 
 ```text
 FineArtFactor = 0.5       if PORTNUM LIKE '%_QS'  and PORTNUM LIKE '%_FA_%'
@@ -77,55 +80,58 @@ policy type. For each post-join row:
 
 ```text
 PolicyAdjustedTIV = GroundUpTIV * COALESCE(PolicyFactor, 1.0) * FineArtFactor
-TIV              = PolicyAdjustedTIV       # exported alias
+TIV              = PolicyAdjustedTIV
 GroundUpLoss     = GroundUpTIV * PML
-GULoss           = PolicyAdjustedTIV * PML  # gross_loss_after_policy_terms
+GULoss           = PolicyAdjustedTIV * PML
 ```
 
 The policy result is account-level and is joined back to locations. Multiple
 `portacct` memberships can therefore multiply location rows. The exported
-`edm_exposures.csv` is post-join and cannot prove that duplication did not occur.
+`edm-exposures.csv` is post-join and cannot prove that duplication did not
+occur.
 
 ## Spatial contract
 
-`ShapeFiles` rows require `EventID`, `PolygonID`, `Lat`, `Long`, and `DrawOrder`.
-Points are interpreted as latitude/longitude in the configured WGS84 CRS and
-ordered by `DrawOrder` to construct polygons. Invalid geometries are repaired
-with `buffer(0)` when possible; polygons with too few usable points may be
-dropped. These are observed transformations, not approval to continue.
+`shape-points.csv` rows require `EventID`, `PolygonID`, `Lat`, `Long`, and
+`DrawOrder`. Points are interpreted as latitude/longitude in WGS84
+(`EPSG:4326`) and ordered by `DrawOrder` to construct polygons. Invalid
+geometries are repaired with `buffer(0)` when possible; polygons with too few
+usable points may be dropped.
 
 Exposure rows with null coordinates are dropped. Remaining coordinates outside
 latitude `[-90, 90]` or longitude `[-180, 180]` are dropped, then assigned an
-internal `_ExposureRowID`. Spatial join uses GeoPandas `predicate='intersects'`,
-so a point on a polygon boundary counts as impacted.
+internal `_ExposureRowID`. The spatial join uses GeoPandas
+`predicate='intersects'`, so a point on a polygon boundary counts as impacted.
 
-If one exposure intersects several polygons, exactly one row is retained: sort
-by `_ExposureRowID`, descending PML, then ascending `PolygonID`, and keep the
-first. This is a selection rule, not an additive overlapping-loss calculation.
-The retained PML is copied to `SourcePML`; `PMLOverrideApplied` is `False`.
+If one exposure intersects several polygons, exactly one row is retained:
+sort by `_ExposureRowID`, descending PML, then ascending `PolygonID`, and keep
+the first. This is a selection rule, not additive overlapping-loss
+calculation. The retained PML is copied to `SourcePML`;
+`PMLOverrideApplied` is `False`.
 
 ## Event processing and status semantics
 
-The pipeline checks both database connections, reads and selects events, reads
-EDM exposures, drops unusable coordinates, then processes each selected event
-independently. For each event it loads shape points and PML, left-merges PML on
-`(EventID, PolygonID)`, intersects valid exposure points, and computes losses.
-An event with no shape points/polygons receives `No polygons`; an event with no
-intersections receives `No impacted exposures`; a completed event receives
-`Success` and its impacted-row count. Any exception is retained in
-`*_error_log.csv` and the event receives `Error` while other events continue.
+The pipeline reads and selects events, reads the EDM CSV, drops unusable
+coordinates, then processes each selected event independently. For each event
+it loads shape points and PML, left-merges PML on `(EventID, PolygonID)`,
+intersects valid exposure points, and computes losses. An event with no shape
+points/polygons receives `No polygons`; an event with no intersections receives
+`No impacted exposures`; a completed event receives `Success` and its
+impacted-row count. Missing PML fails the event by default. Any exception is
+retained in `*_error_log.csv` and the event receives `Error` while other
+events continue.
 
-The summary metrics are `overall_status`, `events_selected`, `events_successful`,
-`events_no_polygons`, `events_no_impacted_exposures`, `events_failed`, and
-`impacted_exposure_rows`. `overall_status` is `Complete with errors` if any
-run-log row is `Error`, otherwise `Complete`. This status does not establish
-that a zero result is approved or that monetary totals are complete.
+The summary metrics are `overall_status`, `events_selected`,
+`events_successful`, `events_no_polygons`, `events_no_impacted_exposures`,
+`events_failed`, and `impacted_exposure_rows`. `overall_status` is `Complete
+with errors` if any run-log row is `Error`, otherwise `Complete`. This status
+does not establish that a zero result is approved or that monetary totals are
+complete.
 
 Exit code `1` indicates a pipeline-level failure. Exit code `2` indicates one
 or more selected events failed. A run with event failures is incomplete even
 when some CSV files were written. Files are written one at a time after all
-events; output-directory creation allows existing directories and publication
-is not atomic.
+events; the output directory must be new or empty, and publication is not atomic.
 
 ## Output pack
 
@@ -144,8 +150,8 @@ single-event run. The generated files are:
 
 Account and location breakdowns group post-join rows and sum ground-up TIV,
 policy-adjusted TIV, ground-up loss, and policy-adjusted loss. Empty frames are
-still written as header-bearing CSVs where their columns are known; a header or
-file alone is not evidence of a complete result.
+still written as header-bearing CSVs where columns are known; a header or file
+alone is not evidence of a complete result.
 
 ## Required controls and evidence
 
@@ -160,17 +166,17 @@ Before use, independently preserve controls at these grains:
 6. event, account, location, currency, ground-up TIV, policy-adjusted TIV,
    ground-up loss, and policy-adjusted loss totals.
 
-Reconcile `Events`, `ShapeFiles`, and `PML` IDs and counts. Investigate every
-unmatched policy/account, duplicate portfolio membership, invalid coordinate,
-repaired geometry, boundary impact, missing PML, warning, and zero/no-impact
-status. Require independently approved zero-impact evidence for an empty EDM
-extract, no usable coordinates, no polygons, or no impacted locations.
+Reconcile event, shape, and PML IDs and counts. Investigate every unmatched
+policy/account, duplicate portfolio membership, invalid coordinate, repaired
+geometry, boundary impact, missing PML, warning, and zero/no-impact status.
+Require independently approved zero-impact evidence for an empty EDM extract,
+no usable coordinates, no polygons, or no impacted locations.
 
-Require a run manifest containing resolved non-secret arguments, database
-identity and time, code and lock revision, start/end times, status and exit
-code, output checksums, event selection, and pre/post-join counts and totals.
-Publish only a complete run-specific directory. Never put credentials, tokens,
-or connection secrets in the manifest or repository.
+Require a run manifest containing resolved non-secret settings, source snapshot
+identity and time, code and dependency revision, start/end times, status and
+exit code, output checksums, event selection, and pre/post-join counts and
+totals. Never put credentials, tokens, or connection secrets in the manifest or
+repository. Publish only a complete run-specific directory.
 
 ## Hard stops and unresolved decisions
 
@@ -180,10 +186,10 @@ rule; empty or malformed extracts; dropped coordinates; multiple policy or
 portfolio memberships without cardinality/allocation rules; missing policy
 factors; or unapproved Fine Art patterns/factors.
 
-Also stop for any use of `--allow-missing-pml`, reused/nonempty output folders,
-partial event status, nonzero exit code, missing expected CSVs/headers, or a
-status that claims completion without the controls above. GLOBAL-01 requires
-owners to resolve policy-limit semantics, portfolio membership, Fine Art
-matching, PML and geometry handling, independent zero-impact evidence, complete
-publication, and provenance. COMMON-01 requires approved source period,
-connection policy, scope, assumptions, and reconciliation tolerance.
+Also stop for reused/nonempty output folders, partial event status, nonzero exit
+code, missing expected CSVs/headers, or a status that claims completion without
+the controls above. GLOBAL-01 still requires owners to resolve policy-limit
+semantics, portfolio membership, Fine Art matching, PML and geometry handling,
+independent zero-impact evidence, complete publication, and provenance.
+COMMON-01 still requires an approved source period, scope, assumptions,
+connection policy for the SQL export step, and reconciliation tolerance.

@@ -1,12 +1,10 @@
 [project]
 name = "global-exposures"
 version = "0.1.0"
-description = "Geospatial event exposure reporting CLI"
+description = "Offline geospatial event exposure reporting from SQL-exported CSVs"
 requires-python = ">=3.13"
 dependencies = [
     "geopandas>=1.1.3",
     "pandas>=3.0.2",
-    "pyodbc>=5.3.0",
     "shapely>=2.1.2",
-    "sqlalchemy>=2.0.49",
 ]

@@ -1,24 +1,46 @@
-# Global Exposures — event exposure files
+# Global Exposures — CSV operator run
 
-**Not ready for an operator run:** the SQL Server spatial implementation is still required; `globalexposures/exposures.py` remains a maintainer-only calculation, not an approved reporting route.
+1. **Choose one scope.** Open the four files in `globalexposures/sql/` and
+   use the same approved snapshot and event selection for the exports.
+   Run `events.sql`, `shape-points.sql` and `pml.sql` against `GlobalExposures`.
+   Run `edm-exposures.sql` against the selected EDM snapshot and export the results as:
+   `events.csv`, `shape-points.csv`, `pml.csv`, and `edm-exposures.csv`.
+   Use the same `@event_id` in those three queries (`NULL` means all events);
+   set `@peril_to_use` and `@portnum_filter` in the EDM query for the required exposure scope.
 
-## Prepare the run
+2. **Place the inputs.** Put the four header-bearing CSVs beside
+   `exposures.py`, or set each constant below to an arbitrary full path. A
+   header-only shape or PML export can be valid for an event; review missing
+   shapes and every `No impacted exposures` result rather than treating them as
+   proof of no impact.
 
-1. Confirm the annual EDM snapshot and the event, polygon and PML records in `GlobalExposures.data.Events`, `ShapeFiles` and `PML`.
-2. Confirm event IDs, polygon validity, coordinates, policy/portfolio rules and independent exposure totals before any calculation.
-3. Use a new, empty output folder for each run so files from different events or snapshots are not mixed.
-4. Do not run or deliver this as an operator process until the spatial implementation, validation evidence and source rules have been approved.
+3. **Edit the constants at the top of `exposures.py`.** Use a new or empty
+   output folder and keep the paths and event selection explicit:
 
-## Check a supplied calculation pack
+   ```python
+   EVENTS_INPUT_CSV = Path(__file__).with_name("events.csv")
+   SHAPE_POINTS_INPUT_CSV = Path(__file__).with_name("shape-points.csv")
+   PML_INPUT_CSV = Path(__file__).with_name("pml.csv")
+   EDM_INPUT_CSV = Path(__file__).with_name("edm-exposures.csv")
+   OUTPUT_DIR = Path(__file__).with_name("global_exposures_outputs")
+   EVENT_ID_TO_RUN = None  # or one approved EventID
+   ```
 
-1. Read `*_summary.csv` for status and event counts, not monetary totals.
-2. Check `*_run_log.csv` and `*_error_log.csv` and account for every selected event.
-3. Reconcile `edm_exposures.csv` to independent EDM totals.
-4. Reconcile `*_account_breakdown.csv` and `*_location_breakout.csv` to the impacted-location detail in `*_location_rows.csv`.
-5. Investigate missing files or headers, multiplied exposure, invalid geometry/PML, missing policy factors and every zero/no-impact result.
-6. Accept a zero only with independent evidence of no impact, and do not sum overlapping events without an agreed rule.
-7. Keep the full CSV pack, source settings, calculation command and reconciliations together.
+4. **Run from `globalexposures/`.** Use no CLI flags and no local virtual
+   environment:
 
-There is no Excel-loading step for this process; a CSV pack alone does not establish that every event was calculated correctly.
+   ```bash
+   uv run --no-project --with-requirements requirements.txt python exposures.py
+   ```
 
-**To return to later:** finish and validate the SQL Server spatial route before using this process for reporting.
+5. **Inspect the complete output pack.** Review the summary, run and error
+   logs, `*_location_rows.csv`, both breakdown files, and `edm_exposures.csv`.
+   Account for each selected event and reconcile totals. Missing PML is an
+   event failure. Boundary points count as impacted; an exposure in multiple
+   polygons keeps only the highest-PML match (then lowest `PolygonID`), not an
+   additive overlap. Investigate invalid or dropped coordinates, repaired
+   geometry, multiplied post-join exposure, and every zero result before
+   delivery. Keep inputs, constants, command, outputs, and reconciliations
+   together.
+   A `Complete` summary is processing status only; it does not approve a zero
+   result or establish that monetary totals are complete.
