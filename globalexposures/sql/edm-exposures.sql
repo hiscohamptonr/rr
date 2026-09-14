@@ -1,4 +1,9 @@
--- Run against the selected EDM database and export the result as edm-exposures.csv.
+-- Server (original Python default): prod-lmrmsinsurance-db\LMRMSinsurance
+-- Database (original Python default): HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_v25_EDM
+-- Schema: dbo
+-- Source tables: dbo.loc, dbo.loccvg, dbo.policy, dbo.accgrp, dbo.portacct, dbo.portinfo
+-- Export with headers as: edm-exposures.csv
+-- Select the correct current EDM snapshot and confirm peril/portfolio parameters before running.
 DECLARE @peril_to_use int = 4;
 DECLARE @portnum_filter nvarchar(255) = NULL;
 

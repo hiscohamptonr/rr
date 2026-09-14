@@ -1,4 +1,9 @@
--- Run against the GlobalExposures database and export the result as events.csv.
+-- Server (original Python default): PR0603-41001-00
+-- Database: GlobalExposures
+-- Schema: data
+-- Source table: data.Events
+-- Export with headers as: events.csv
+-- Confirm the server/database and event selection before running.
 DECLARE @event_id int = NULL;
 
 SELECT

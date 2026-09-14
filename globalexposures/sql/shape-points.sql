@@ -1,4 +1,9 @@
--- Run against the GlobalExposures database and export the result as shape-points.csv.
+-- Server (original Python default): PR0603-41001-00
+-- Database: GlobalExposures
+-- Schema: data
+-- Source table: data.ShapeFiles
+-- Export with headers as: shape-points.csv
+-- Confirm the server/database and use the same event selection as events.sql and pml.sql.
 DECLARE @event_id int = NULL;
 
 SELECT
