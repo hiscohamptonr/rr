@@ -6,7 +6,6 @@ This module assembles reference copies without altering source Markdown.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import shutil
@@ -20,14 +19,6 @@ from urllib.parse import unquote, urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 OUTPUT = DOCS / "generated"
-BUILDER = Path(__file__).resolve()
-
-# Change this when the assembly/rewriting rules change.  It makes the source
-# identity explicit even when the builder hash is not retained by a caller.
-BUILDER_SEMANTICS = (
-    "docx-source-manifest-v1; stable-heading-anchors-v1; "
-    "generated-link-rebase-v1; human-guides-only-v2"
-)
 
 
 @dataclass(frozen=True)
@@ -37,17 +28,13 @@ class Document:
     pages: tuple[Path, ...]
 
 
-SHARED_PAGES = (
-    DOCS / "operating-controls.md",
-)
+SHARED_PAGES = (DOCS / "operating-controls.md",)
 
 DOCUMENTS = (
     Document(
         stem="PRA-Jan-2026",
         title="PRA Runbook",
-        pages=(
-            DOCS / "pra" / "runbook.md",
-        ),
+        pages=(DOCS / "pra" / "runbook.md",),
     ),
     Document(
         stem="BSCR-Jan-2026",
@@ -92,16 +79,6 @@ _LINK = re.compile(
 )
 
 
-
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
-def _source_hash(path: Path) -> tuple[str, str]:
-    raw = path.read_bytes()
-    return raw.decode("utf-8"), _sha256(raw)
-
-
 def _relative_source(path: Path) -> str:
     return path.resolve().relative_to(ROOT).as_posix()
 
@@ -122,7 +99,7 @@ def _page_prefix(path: Path) -> str:
 
 
 def _prepare_page(path: Path) -> PreparedPage:
-    text, _ = _source_hash(path)
+    text = path.read_text(encoding="utf-8")
     prefix = _page_prefix(path)
     counts: dict[str, int] = {}
     aliases: dict[str, list[str]] = {}
@@ -262,62 +239,14 @@ def _rewrite_links(page: PreparedPage, pages: dict[Path, PreparedPage]) -> str:
     return "\n".join(lines)
 
 
-def _git_revision() -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError:
-        return "unavailable"
-    revision = result.stdout.strip()
-    return revision if result.returncode == 0 and revision else "unavailable"
-
-
-def _identity(document: Document, pages: tuple[PreparedPage, ...]) -> tuple[str, str, str]:
-    records = []
-    for page in pages:
-        raw = page.path.read_bytes()
-        digest = _sha256(raw)
-        records.append(f"{_relative_source(page.path)}\0{digest}".encode("utf-8"))
-    manifest = _sha256(b"".join(records))
-    builder_digest = _sha256(BUILDER.read_bytes())
-    lines = [
-        "## Source identity {#source-identity}",
-        "",
-        f"- Git revision: `{_git_revision()}` (the working tree may contain uncommitted changes).",
-        f"- Builder SHA-256: `{builder_digest}`.",
-        f"- Assembly semantics: `{BUILDER_SEMANTICS}`.",
-        f"- Exact input-doc manifest SHA-256: `{manifest}`.",
-        "",
-        "The per-file hashes below are computed from the current UTF-8 bytes, so "
-        "uncommitted Markdown edits remain distinguishable even when the Git "
-        "revision is unchanged:",
-        "",
-        "| Included source | SHA-256 |",
-        "|---|---|",
-    ]
-    for page in pages:
-        lines.append(f"| `{_relative_source(page.path)}` | `{_sha256(page.path.read_bytes())}` |")
-    return "\n".join(lines), manifest, builder_digest
-
-
 def combined_markdown(document: Document) -> str:
     pages = tuple(_prepare_page(page) for page in document.pages)
     page_map = {page.path: page for page in pages}
-    identity, _, _ = _identity(document, pages)
     sections = [
         "---",
         f'title: "{document.title}"',
         'subtitle: "January 2026"',
         "---",
-        "",
-        "> Short operator guide. Detailed technical references are linked, not "
-        "included. Markdown is the maintained source; use approved inputs and "
-        "templates for the reporting cycle.",
         "",
     ]
     for page in pages:
@@ -330,7 +259,6 @@ def combined_markdown(document: Document) -> str:
                 _rewrite_links(page, page_map).strip(),
             ]
         )
-    sections.extend(["", identity])
     return "\n".join(sections) + "\n"
 
 
