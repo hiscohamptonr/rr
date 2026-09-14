@@ -26,7 +26,7 @@ Dataiku is a separate provisional route, not a replacement for the returns.
 - **LLMs and technical reviewers:** start with [LLM instructions](docs/llm-instructions.md), then the process's technical reference.
 - **Something is blocked:** [decisions](docs/decisions.md) lists the answer or artifact needed and how to close the issue.
 - **Why is it blocked?** [calculation discrepancies](docs/calculation-discrepancies.md) contains the code and workbook evidence.
-- **Where do calculated values go?** The [BSCR](docs/bscr/handoff.md) and [Lloyd's](docs/lloyds/handoff.md) traces distinguish calculated outputs from missing final-cell maps; the final PRA submission template remains to be located.
+- **Where do calculated values go?** The [BSCR trace](docs/bscr/handoff.md) distinguishes calculated outputs from missing final-cell maps; the final PRA and Lloyd's submission templates remain to be located.
 
 You do not need to read the technical pack before browsing a human guide.
 

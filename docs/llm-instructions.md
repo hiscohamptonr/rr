@@ -20,7 +20,7 @@ assistance, tracing calculations or investigating a discrepancy.
 |---|---|---|
 | BSCR | [Technical reference](bscr/technical-contract.md) | [Trace](bscr/handoff.md) |
 | PRA | [Runbook](pra/runbook.md) | Final submission template remains to be located |
-| Lloyd's | [Technical reference](lloyds/technical-contract.md) | [Trace](lloyds/handoff.md) |
+| Lloyd's | [Runbook](lloyds/runbook.md) | Final submission template and destination cells remain to be confirmed |
 | Global Exposures | [Technical reference](global-exposures/technical-contract.md) | CSV pack; no workbook handoff |
 | Dataiku | [Current technical guide](dataiku/current-technical-guide.md) | Provisional aggregation, not a final return |
 

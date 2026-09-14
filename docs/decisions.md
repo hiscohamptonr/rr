@@ -150,7 +150,6 @@ and email and evidence each extract's lineage; matching headers are insufficient
 
 **Close with:** versioned commands/queries or transformations, source snapshots,
 approved mappings/proxies and source-to-extract control totals for every branch.
-See [Lloyd's handoff trace](lloyds/handoff.md).
 
 ## LLOYDS-02
 
