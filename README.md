@@ -11,8 +11,8 @@ what to run, what to check and where the process stops.
 
 | Process | Read online / in your editor | Open in Word |
 |---|---|---|
-| BSCR Schedule X | [BSCR guide](docs/bscr/runbook.md) | [PRA & BSCR](docs/generated/PRA-BSCR-Jan-2026.docx) |
-| PRA aggregates | [PRA guide](docs/pra/runbook.md) | [PRA & BSCR](docs/generated/PRA-BSCR-Jan-2026.docx) |
+| BSCR Schedule X | [BSCR guide](docs/bscr/runbook.md) | [BSCR](docs/generated/BSCR-Jan-2026.docx) |
+| PRA aggregates | [PRA guide](docs/pra/runbook.md) | [PRA](docs/generated/PRA-Jan-2026.docx) |
 | Lloyd's supplementary | [Lloyd's guide](docs/lloyds/runbook.md) | [Lloyd's](docs/generated/Lloyds-Supplementary-Jan-2026.docx) |
 | Global Exposures | [Global Exposures guide](docs/global-exposures/runbook.md) | [Global Exposures](docs/generated/Global-Exposures-Jan-2026.docx) |
 | Dataiku aggregation | [Dataiku guide](docs/dataiku/aggregation.md) | — |

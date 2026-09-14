@@ -24,12 +24,20 @@ The checked-in workbooks `bscr/workbooks/Workings_with_geocodingFW - Including b
 2. On the SQL-export host, run `bscr/sql/bscr-extract.sql` with the approved peril and policy values and save the result with headers as `bscr-source.csv` in that folder, retaining parameters and source totals.
 3. From the repository root on the calculation PC, create the one-time environment with `python -m venv .venv` and Windows dependencies with `.venv\Scripts\python -m pip install -r bscr\requirements.txt`.
 4. Ensure the output directory is absent or empty before starting and do not reuse it for another snapshot.
-5. Run `.venv\Scripts\python bscr/BSCR_UKEU.py --input-dir runs\eq\input --output-dir runs\eq\output --process bscr` using the actual input and output folders.
-6. Confirm that the run completes and that `runs\eq\output\bscr-output.csv` has the exact seven-column header and non-partial contents.
+5. Set `BSCR_INPUT_CSV`, `PRA_INPUT_CSV` and `OUTPUT_DIR` at the top of `bscr/BSCR_UKEU.py` using the example below, then run `.venv\Scripts\python bscr/BSCR_UKEU.py` with no arguments.
+6. Confirm that the run completes and that `bscr-output.csv` in your output folder has the exact seven-column header and non-partial contents.
 7. Reconcile source and output row counts, gross/net totals, entity and region totals, country/state frequencies, geocode splits, and unexplained nulls or unmapped values before review.
 8. Retain the input CSV, output CSV, query revision and parameters, source controls, run command, code revision, reconciliation, exceptions, and reviewer record together as the run evidence.
 
-For a combined run, use `--process both` and provide both required source files; `--process bscr` requires `bscr-source.csv`, while `--process pra` is documented by the shared script contract and is not needed for a BSCR-only run.
+Edit this configuration block at the top of the Python file, replacing the example locations with your actual paths:
+
+```python
+BSCR_INPUT_CSV = Path(r"C:\Returns\eq\input\my BSCR extract.csv")
+PRA_INPUT_CSV = None
+OUTPUT_DIR = Path(r"C:\Returns\eq\output")
+```
+
+Include the CSV filename in `BSCR_INPUT_CSV`; `None` skips PRA, and setting both CSV paths runs both calculations.
 
 ## Interpret the output safely
 

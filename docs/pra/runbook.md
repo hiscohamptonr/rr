@@ -8,12 +8,23 @@ Use Python 3.13+ on the calculation PC; it does not need SQL Server access, ODBC
 2. On the approved SQL Server, run `pra/sql/pra-raw.sql` with the recorded PRA defaults `@peril = 2` and `@policy_type = 2` unless the approved selection says otherwise.
 3. Export the SQL result, including its header, as `<input-dir>/pra-source.csv` with exactly `pml,accgrpid,uwritrname,state,userid1,branchname,cntrycode` in that order.
 4. On the calculation PC, create the one-time environment with `python -m venv .venv` and, on Windows, install dependencies with `.venv\Scripts\python -m pip install -r bscr/requirements.txt`.
-5. From the repository root, run Windows with `.venv\Scripts\python bscr/BSCR_UKEU.py --input-dir runs\eq\input --output-dir runs\eq\output --process pra` or run macOS/Linux with `.venv/bin/python bscr/BSCR_UKEU.py --input-dir runs/eq/input --output-dir runs/eq/output --process pra`.
+5. Set `PRA_INPUT_CSV`, `BSCR_INPUT_CSV` and `OUTPUT_DIR` at the top of `bscr/BSCR_UKEU.py` using the example below, then run `.venv\Scripts\python bscr/BSCR_UKEU.py` with no arguments.
 6. Confirm that the output directory was absent or empty before the run and that it now contains exactly `pra-raw.csv` and `pra-aggregate.csv` for a PRA-only run.
 7. Check `pra-raw.csv` as the seven-column raw file and `pra-aggregate.csv` as the five-column file `pml,state,userid1,cntrycode,uwritrname`, then reconcile row counts, headers, totals, and approved tolerances.
 8. Retain the SQL export, both output files, snapshot/peril/policy metadata, script and query revisions, mappings, and the reconciliation record before review.
 9. Treat unexplained differences, partial files, malformed headers, mapping errors, currency or unit uncertainty, and policy-join cardinality or cross-product risk as stops.
 10. Treat these files as reviewed internal calculation candidates only: no checked-in template or approved source-to-destination map establishes a final PRA return.
+
+Edit this configuration block at the top of the Python file, replacing the example locations with your actual paths:
+
+```python
+BSCR_INPUT_CSV = None
+PRA_INPUT_CSV = Path(r"C:\Returns\eq\input\my PRA extract.csv")
+OUTPUT_DIR = Path(r"C:\Returns\eq\output")
+```
+
+Include the CSV filename in `PRA_INPUT_CSV`; `None` skips BSCR, and `OUTPUT_DIR` must be new or empty.
+On macOS/Linux use `.venv/bin/python` to run the file and use your local paths.
 
 ## Column boundary
 
@@ -33,6 +44,8 @@ Do not substitute an eight-column BSCR source for `pra-source.csv`, and do not p
 4. Run the same offline command with that folder's paths only after the source selection is established, and apply the same exact-file and reconciliation checks.
 
 ## Optional current workbook review
+
+The user-reported Excel corruption is unresolved; the workbook is not required for the CSV calculation and the reference steps below are deferred until it opens correctly.
 
 `pra/workbooks/PRA_Aggs.xlsx` is optional: it has only the two aggregate sheets and their three mapping sheets, not the former raw-data, BSCR-panel or SQL tabs.
 

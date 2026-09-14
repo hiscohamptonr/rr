@@ -28,7 +28,7 @@ record. A folder is one snapshot and one peril/policy selection.
 
 ## Folder and CSV contract
 
-For a PRA run, the input directory contains:
+For a PRA run, set `PRA_INPUT_CSV` at the top of the script to the full CSV path; the example filename is:
 
 ```text
 pra-source.csv
@@ -59,9 +59,9 @@ The separate BSCR input is `bscr-source.csv` with eight columns
 it is not valid PRA input. A five-column direct aggregate is not valid raw
 input.
 
-The output directory must be absent or empty before starting. The
-`--process` choices are `bscr`, `pra`, and `both`; `both` is the default and
-requires both source files, while `pra` requires only `pra-source.csv`.
+Set `OUTPUT_DIR` to a new or empty output folder, `PRA_INPUT_CSV` to the
+PRA file path and `BSCR_INPUT_CSV` to `None`; configure both input paths to run
+both calculations. At least one is required and filenames are arbitrary.
 
 ## Server-side query behaviour
 
@@ -94,18 +94,20 @@ From the repository root, create the calculation environment once:
 python -m venv .venv
 ```
 
-On Windows, install the pinned requirements and run PRA with:
+Set `PRA_INPUT_CSV = Path(r"C:\Returns\eq\input\pra-source.csv")`,
+`BSCR_INPUT_CSV = None`, and `OUTPUT_DIR = Path(r"C:\Returns\eq\output")`
+at the top of the script. On Windows, install the pinned requirements and run with no arguments:
 
 ```text
 .venv\Scripts\python -m pip install -r bscr/requirements.txt
-.venv\Scripts\python bscr/BSCR_UKEU.py --input-dir runs\eq\input --output-dir runs\eq\output --process pra
+.venv\Scripts\python bscr/BSCR_UKEU.py
 ```
 
 On macOS/Linux, use `.venv/bin/python` in place of
 `.venv\Scripts\python`:
 
 ```text
-.venv/bin/python bscr/BSCR_UKEU.py --input-dir runs/eq/input --output-dir runs/eq/output --process pra
+.venv/bin/python bscr/BSCR_UKEU.py
 ```
 
 No `uv`, ODBC driver, SQL connection, server flag, database flag, or

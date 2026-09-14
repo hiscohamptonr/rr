@@ -32,13 +32,15 @@ python -m venv .venv
 .venv\Scripts\python -m pip install -r bscr\requirements.txt
 ```
 
-Run BSCR from a new empty output directory:
+Set `BSCR_INPUT_CSV = Path(r"C:\Returns\eq\input\bscr-source.csv")`,
+`PRA_INPUT_CSV = None`, and `OUTPUT_DIR = Path(r"C:\Returns\eq\output")`
+in the configuration block at the top of the script, then run with no arguments:
 
 ```text
-.venv\Scripts\python bscr/BSCR_UKEU.py --input-dir runs\eq\input --output-dir runs\eq\output --process bscr
+.venv\Scripts\python bscr/BSCR_UKEU.py
 ```
 
-The supported process choices are `bscr`, `pra`, and `both`; `both` is the default.  `bscr` requires `bscr-source.csv` and emits `bscr-output.csv`; `both` requires all source files in the shared contract.  The output directory must be absent or empty before execution, and a failed or incomplete run is not consumable.
+Configure `BSCR_INPUT_CSV`, `PRA_INPUT_CSV`, or both at the top of the script; at least one path is required, filenames are arbitrary, and `None` skips that calculation. A BSCR input emits `bscr-output.csv`; a PRA input emits `pra-raw.csv` and `pra-aggregate.csv`. All configured inputs are loaded before writing outputs. `OUTPUT_DIR` must be absent or empty, and a failed or incomplete run is not consumable. No command-line input options are used.
 
 The BSCR output header is exactly:
 

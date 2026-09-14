@@ -12,7 +12,7 @@ Use the [offline runbook](runbook.md) and [technical contract](technical-contrac
 |---|---|---|---|
 | Approved extraction | `bscr/sql/bscr-extract.sql` run on the approved export host | One approved snapshot, peril, and policy selection; defaults are `@peril = 1`, `@policy_type = 1`, not cycle approval | `bscr-source.csv` |
 | BSCR source | `bscr-source.csv` | Exact header: `pml,accgrpid,uwritrname,state,userid1,branchname,cntrycode,is_geocoded`; source currency and source row counts remain evidence | Offline Python |
-| Offline calculation | `bscr/BSCR_UKEU.py` with `--input-dir`, `--output-dir`, and `--process bscr` | Reads the folder only; no database, embedded SQL, workbook, Excel, or ODBC dependency | `bscr-output.csv` |
+| Offline calculation | `bscr/BSCR_UKEU.py`, with `BSCR_INPUT_CSV` and `OUTPUT_DIR` configured at the top of the file | Reads the configured CSV only; no database, embedded SQL, workbook, Excel, or ODBC dependency | `bscr-output.csv` |
 | Reviewed output | `bscr-output.csv` | Exact header: `cntrycode,bscr_entity,region,sum_pml,sum_net,count_policies,is_geocoded`; gross/net and contributing counts require reconciliation | Reviewed exposure input only |
 
 `sum_pml` and `sum_net` retain source currency; Python performs no FX conversion.  `count_policies` is not a distinct contract count.  `ALL` and regional rows overlap and must not be summed, while a different peril requires a separate approved extraction rather than another region view.

@@ -1,4 +1,4 @@
-"""Build the three January 2026 human-readable DOCX guides.
+"""Build separate January 2026 human-readable DOCX guides for each process.
 
 Markdown under ``docs/`` is the maintained source.
 This module assembles reference copies without altering source Markdown.
@@ -43,10 +43,17 @@ SHARED_PAGES = (
 
 DOCUMENTS = (
     Document(
-        stem="PRA-BSCR-Jan-2026",
-        title="PRA and BSCR Runbook",
+        stem="PRA-Jan-2026",
+        title="PRA Runbook",
         pages=(
             DOCS / "pra" / "runbook.md",
+            *SHARED_PAGES,
+        ),
+    ),
+    Document(
+        stem="BSCR-Jan-2026",
+        title="BSCR Schedule X Runbook",
+        pages=(
             DOCS / "bscr" / "runbook.md",
             *SHARED_PAGES,
         ),

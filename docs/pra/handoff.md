@@ -24,6 +24,10 @@ The BSCR source is separate (`bscr-source.csv`, eight columns including
 snapshot has separate input and output folders; `1/1` and `4/4` remain
 unresolved candidates and are not promoted to approved scope.
 
+Set `PRA_INPUT_CSV` at the top of the script to the full raw CSV path and
+filename, set `OUTPUT_DIR`, and leave `BSCR_INPUT_CSV = None` for PRA only.
+`pra-source.csv` is an example name, not a required basename.
+
 ## Checks and retention
 
 Before review, retain the server export, both PRA outputs, exact headers,

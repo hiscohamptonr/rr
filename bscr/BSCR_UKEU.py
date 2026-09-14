@@ -7,12 +7,18 @@ This script never connects to SQL Server or reads a workbook.
 
 from __future__ import annotations
 
-import argparse
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from pathlib import Path
 
 import polars as pl
 from tabulate import tabulate
+
+# EDIT THESE PATHS BEFORE RUNNING. Use None to skip a calculation.
+# Example: PRA_INPUT_CSV = Path(r"C:\Returns\my PRA extract.csv")
+BSCR_INPUT_CSV: Path | None = None
+PRA_INPUT_CSV: Path | None = None
+OUTPUT_DIR = Path("output")
+
 
 LOB_COLUMN = "userid1"
 BSCR_ENTITIES = ("HIG", "HSA", "33", "3624", "HIC")
@@ -364,36 +370,33 @@ def load_source_csv(path: Path, columns: list[str]) -> pl.DataFrame:
 
 
 def run_pipeline(
-    input_dir: Path,
     output_dir: Path,
-    process: str = "both",
+    *,
+    bscr_input: Path | None = None,
+    pra_input: Path | None = None,
 ) -> dict[str, Path]:
     """Calculate one snapshot/peril run from CSVs, without database access."""
-    if process not in ("bscr", "pra", "both"):
-        raise ValueError("process must be bscr, pra, or both")
+    if bscr_input is None and pra_input is None:
+        raise ValueError("set BSCR_INPUT_CSV or PRA_INPUT_CSV at the top of this file")
     if output_dir.exists() and (not output_dir.is_dir() or any(output_dir.iterdir())):
         raise ValueError(f"{output_dir}: use a new or empty output directory")
 
     # Load all requested inputs before creating any outputs.
     bscr_source = (
-        load_source_csv(input_dir / "bscr-source.csv", SOURCE_COLUMNS)
-        if process in ("bscr", "both")
-        else None
+        load_source_csv(bscr_input, SOURCE_COLUMNS) if bscr_input is not None else None
     )
     pra_source = (
-        load_source_csv(input_dir / "pra-source.csv", PRA_RAW_COLUMNS)
-        if process in ("pra", "both")
-        else None
+        load_source_csv(pra_input, PRA_RAW_COLUMNS) if pra_input is not None else None
     )
     outputs: dict[str, Path] = {}
     if bscr_source is not None:
-        print("BSCR source:", input_dir / "bscr-source.csv")
+        print("BSCR source:", bscr_input)
         print_source_summary(bscr_source)
         destination = output_dir / "bscr-output.csv"
         write_csv(build_bscr_output(bscr_source), destination)
         outputs["bscr"] = destination
     if pra_source is not None:
-        print("PRA source:", input_dir / "pra-source.csv")
+        print("PRA source:", pra_input)
         print_source_summary(pra_source)
         raw_destination = output_dir / "pra-raw.csv"
         aggregate_destination = output_dir / "pra-aggregate.csv"
@@ -404,38 +407,13 @@ def run_pipeline(
     return outputs
 
 
-def build_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Calculate BSCR/PRA outputs from SQL-exported CSV files; no database connection."
-    )
-    parser.add_argument(
-        "--input-dir",
-        type=Path,
-        required=True,
-        help="folder containing bscr-source.csv and/or pra-source.csv, with headers",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        required=True,
-        help="new or empty folder for calculated CSV files",
-    )
-    parser.add_argument(
-        "--process",
-        choices=("bscr", "pra", "both"),
-        default="both",
-        help="outputs to calculate (default: %(default)s); both requires both source CSVs",
-    )
-    return parser
-
-
-def main(argv: Sequence[str] | None = None) -> None:
-    parser = build_argument_parser()
-    args = parser.parse_args(argv)
+def main() -> None:
     try:
-        outputs = run_pipeline(args.input_dir, args.output_dir, args.process)
+        outputs = run_pipeline(
+            OUTPUT_DIR, bscr_input=BSCR_INPUT_CSV, pra_input=PRA_INPUT_CSV
+        )
     except (OSError, ValueError, pl.exceptions.PolarsError) as error:
-        parser.exit(1, f"Error: {error}\n")
+        raise SystemExit(f"Error: {error}") from error
     for destination in outputs.values():
         print("Wrote:", destination)
 
