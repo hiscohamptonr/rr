@@ -2,9 +2,11 @@
 
 PRA uses **SQL → CSV → Excel**; follow its short runbook.
 BSCR uses **SQL → CSV → offline Python calculation**, with file paths set at
-the top of the script; the calculation PC needs no database connection or `uv`.
+the top of the script; the calculation PC needs no database connection.
 Global Exposures also uses **SQL → CSV → offline Python**, with four input files
 and local spatial calculations; it does not require a SQL spatial rewrite.
+Python dependencies come from each project's `pyproject.toml` and `uv.lock`;
+the runbooks use `uv run --isolated --locked` without a local `.venv`.
 ## Start with your guide
 
 These are the short, human-readable instructions. Each covers what you need,

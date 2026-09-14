@@ -9,7 +9,7 @@ The process is two separate stages:
 1. An approved SQL-export host runs `bscr/sql/bscr-extract.sql` against the approved snapshot and writes `bscr-source.csv`.
 2. The calculation PC runs `bscr/BSCR_UKEU.py` offline against a folder of CSVs and writes `bscr-output.csv`.
 
-The Python stage reads no database, embedded SQL, workbook, Excel connection, or ODBC configuration.  The calculation PC needs Python 3.13+ and the pinned `bscr/requirements.txt`; `uv`, Excel, and ODBC are not required.
+The Python stage reads no database, embedded SQL, workbook, Excel connection, or ODBC configuration. UV resolves Python 3.13+ dependencies from the root `pyproject.toml` and `uv.lock` into an isolated environment; no local `.venv`, Excel or ODBC is required.
 
 Each input folder is one approved snapshot and one approved peril/policy selection.  A different peril is a different extraction and input folder, not another overlapping region view of the same file.
 
@@ -25,19 +25,15 @@ The SQL stage retains the query's source grain and does not promise distinct con
 
 ## Python input/output contract
 
-From the repository root, create the Windows environment once:
-
-```text
-python -m venv .venv
-.venv\Scripts\python -m pip install -r bscr\requirements.txt
-```
+Use the root `pyproject.toml` and `uv.lock`; no separate requirements file or
+manual environment setup is needed.
 
 Set `BSCR_INPUT_CSV = Path(r"C:\Returns\eq\input\bscr-source.csv")`,
 `PRA_INPUT_CSV = None`, and `OUTPUT_DIR = Path(r"C:\Returns\eq\output")`
 in the configuration block at the top of the script, then run with no arguments:
 
 ```text
-.venv\Scripts\python bscr/BSCR_UKEU.py
+uv run --isolated --locked python bscr/BSCR_UKEU.py
 ```
 
 Configure `BSCR_INPUT_CSV`, `PRA_INPUT_CSV`, or both at the top of the script; at least one path is required, filenames are arbitrary, and `None` skips that calculation. A BSCR input emits `bscr-output.csv`; a PRA input emits `pra-raw.csv` and `pra-aggregate.csv`. All configured inputs are loaded before writing outputs. `OUTPUT_DIR` must be absent or empty, and a failed or incomplete run is not consumable. No command-line input options are used.

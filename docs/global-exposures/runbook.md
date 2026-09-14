@@ -30,8 +30,9 @@
    environment:
 
    ```bash
-   uv run --no-project --with-requirements requirements.txt python exposures.py
+   uv run --isolated --locked python exposures.py
    ```
+   UV uses this folder's `pyproject.toml` and `uv.lock`, without a local `.venv`.
 
 5. **Inspect the complete output pack.** Review the summary, run and error
    logs, `*_location_rows.csv`, both breakdown files, and `edm_exposures.csv`.
