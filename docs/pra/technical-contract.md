@@ -1,24 +1,22 @@
-# PRA technical contract — server export and offline calculation
+# PRA technical reference
 
-This reference records the contract for `bscr/BSCR_UKEU.py`, the
-server-side query `pra/sql/pra-raw.sql`, and the historical
-`PRA_BSCR_Aggs.xlsx` reference workbook. It is not an approved producer,
-all-peril population, currency basis, mapping policy, PRA methodology, or
-final return; [handoff.md](handoff.md) records the unresolved external
-destination.
+The operator workflow is `pra/sql/pra-earthquake.sql` → five-column CSV →
+`pra/workbooks/PRA_Aggs.xlsx`, as described in the short runbook.
+The offline raw-input/Python route below is an alternative technical facility,
+not a required operator step. Neither route supplies the final PRA submission
+template, which remains to be located.
 
 ## Source routes and provenance
 
-The active route is deliberately split: run `pra/sql/pra-raw.sql` on the
-approved SQL Server, export one seven-column CSV into a run folder, and run
-the Python calculation offline from that folder. Python has no database
-connection, database flags, workbook reads, or embedded SQL execution in this
-route. The old `pra/sql/aggs-from-edm.sql` and embedded workbook `sql` sheet
-are historical query evidence only; they are not active execution steps.
+The main route runs `pra/sql/pra-earthquake.sql` against the selected EDM
+and loads its five-column aggregate into `pivot_eq`. Excel formulas and
+pivots provide the review views; no Python execution is required.
 
-The optional `pra/sql/pra-earthquake.sql` is a direct five-column earthquake
-aggregate for comparison. It is not the seven-column `pra-source.csv` input
-for the offline script.
+For technical users who separately need raw CSV processing, `pra/sql/pra-raw.sql`
+exports seven columns for `bscr/BSCR_UKEU.py`; its details follow below.
+The five-column earthquake aggregate is not interchangeable with that raw input.
+The old `pra/sql/aggs-from-edm.sql` and removed workbook SQL tab are historical
+query evidence, not operator steps.
 
 Required provenance for each folder is the approved snapshot, EDM database
 and roll-up/version, reporting/as-of date, peril and policy codes,
@@ -120,13 +118,13 @@ counts and `pml` totals with the approved extract under the same currency,
 unit, and rounding tolerance, and retain both outputs with metadata. A
 failure or missing output means load nothing from that folder.
 
-## Current workbook option (optional)
+## PRA calculation workbook
 
-`pra/workbooks/PRA_Aggs.xlsx` is an optional review surface for the
-five-column aggregate only, not a calculation prerequisite. An operator may
-load approved `pra-aggregate.csv` with headers into `pivot_eq!A1:E`, or
-into `pivot_allperil!A1:E` for a separately approved all-peril scope,
-after clearing stale input rows, then check table totals and pivot sources.
+`pra/workbooks/PRA_Aggs.xlsx` is the main operator review workbook.
+Load the five-column earthquake SQL export with headers into `pivot_eq!A1:E`,
+or a separately confirmed all-peril aggregate into `pivot_allperil!A1:E`,
+after clearing stale input rows; extend formulas and check table/pivot totals.
+The alternative Python route produces the same five-column input shape.
 The workbook has no raw-data or SQL-tab destination; `pra-source.csv` and
 `pra-raw.csv` remain offline audit artifacts.
 
@@ -166,13 +164,12 @@ be promoted by a successful query or Python run. Keep every candidate in a
 separate named folder, record its codes and population evidence, and apply
 the same header, total, mapping, currency, and tolerance checks.
 
-## Reconciliation and handoff boundary
+## Reconciliation and final template
 
-Reconcile the server export, `pra-raw.csv`, `pra-aggregate.csv`, and any
-optional historical workbook comparison using the same currency/unit and
-approved rounding tolerance. Record query/script version, source folder,
-mapping/rate versions, amount, currency, unit, as-of date, preparer,
-reviewer, and review date.
+Reconcile the SQL export, loaded workbook inputs and pivot totals using the
+same currency/unit and approved rounding tolerance. For the alternative raw
+CSV route, reconcile its raw and aggregate outputs too. Retain source details
+and reconciliation evidence with the run.
 
 These are reviewed internal calculation outputs, not a completed PRA return.
 No final PRA template or approved source-range-to-destination-cell map is

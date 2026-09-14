@@ -1,9 +1,8 @@
 # Regulatory returns
 
-PRA and BSCR use **SQL exports → CSV input folder → offline Python calculation**.
-Run SQL where database access is available; the calculation PC needs Python but
-does not need SQL Server access, ODBC, Excel, or `uv`.
-The calculation script does not read or update workbooks.
+PRA uses **SQL → CSV → Excel**; follow its short runbook.
+BSCR uses **SQL → CSV → offline Python calculation**, with file paths set at
+the top of the script; the calculation PC needs no database connection or `uv`.
 ## Start with your guide
 
 These are the short, human-readable instructions. Each covers what you need,
@@ -27,7 +26,7 @@ Dataiku is a separate provisional route, not a replacement for the returns.
 - **LLMs and technical reviewers:** start with [LLM instructions](docs/llm-instructions.md), then the process's technical reference.
 - **Something is blocked:** [decisions](docs/decisions.md) lists the answer or artifact needed and how to close the issue.
 - **Why is it blocked?** [calculation discrepancies](docs/calculation-discrepancies.md) contains the code and workbook evidence.
-- **Where do calculated values go?** The [BSCR](docs/bscr/handoff.md), [PRA](docs/pra/handoff.md) and [Lloyd's](docs/lloyds/handoff.md) traces distinguish calculated outputs from missing final-cell maps.
+- **Where do calculated values go?** The [BSCR](docs/bscr/handoff.md) and [Lloyd's](docs/lloyds/handoff.md) traces distinguish calculated outputs from missing final-cell maps; the final PRA submission template remains to be located.
 
 You do not need to read the technical pack before browsing a human guide.
 

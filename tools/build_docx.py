@@ -47,7 +47,6 @@ DOCUMENTS = (
         title="PRA Runbook",
         pages=(
             DOCS / "pra" / "runbook.md",
-            *SHARED_PAGES,
         ),
     ),
     Document(

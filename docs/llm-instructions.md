@@ -19,7 +19,7 @@ assistance, tracing calculations or investigating a discrepancy.
 | Process | Detailed reference | Workbook handoff |
 |---|---|---|
 | BSCR | [Technical reference](bscr/technical-contract.md) | [Trace](bscr/handoff.md) |
-| PRA | [Technical reference](pra/technical-contract.md) | [Trace](pra/handoff.md) |
+| PRA | [Technical reference](pra/technical-contract.md) | Final submission template remains to be located |
 | Lloyd's | [Technical reference](lloyds/technical-contract.md) | [Trace](lloyds/handoff.md) |
 | Global Exposures | [Technical reference](global-exposures/technical-contract.md) | CSV pack; no workbook handoff |
 | Dataiku | [Current technical guide](dataiku/current-technical-guide.md) | Provisional aggregation, not a final return |

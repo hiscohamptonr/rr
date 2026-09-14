@@ -133,7 +133,7 @@ final template and exact calculation-output-to-destination mapping, including
 report section, measure, gross/net basis, currency, units and reporting date.
 
 **Close with:** template/version/location, approved final-cell map and review
-requirements. See [PRA handoff trace](pra/handoff.md).
+requirements; the final PRA submission template remains to be located.
 
 ## LLOYDS-01
 

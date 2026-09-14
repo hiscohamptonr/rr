@@ -1,12 +1,12 @@
 # Excel workbook reference
 
-**PRA/BSCR calculations now run offline from SQL-exported CSVs, not Excel refreshes.**
-Use the PRA or BSCR runbook for the SQL filenames, input folder and Python command.
-Those calculations require Python but no database driver, database access, Excel or `uv`.
+**PRA uses SQL → CSV → Excel; Python is not required.** Its short runbook
+contains the current query, paste, formula-fill and pivot-refresh steps.
+**BSCR uses SQL-exported CSVs → offline Python**, with no workbook dependency.
 
 The [operator workbook](generated/Regulatory-Returns-Operator.xlsx) and the
-instructions below are historical workbook-reference material, not the current
-PRA/BSCR calculation procedure; the operator workbook has no embedded connections.
+instructions below are historical reference material, not required by either
+current workflow; the operator workbook has no embedded connections.
 
 ## Required tools
 
