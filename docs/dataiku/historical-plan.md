@@ -2,10 +2,8 @@
 
 [Start here](../../README.md) · [Current query documentation](aggregation.md)
 
-The companion [historical technical contract](technical-contract.md) defines
-the earlier baseline's proposed handling of final grain, eligibility,
-normalisation, controls, and reconciliation. Read it with this plan; neither
-document is the execution contract for the current canonical query.
+This plan describes an earlier uncapped baseline and must not be merged with
+current query behavior.
 
 ## Current status
 

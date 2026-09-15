@@ -3,30 +3,27 @@
 [Human guides](../README.md) · [Short run checklist](operating-controls.md)
 
 This is the detailed layer. Human operators should start with their short guide.
-Use this page and the relevant technical reference when executing with LLM
-assistance, tracing calculations or investigating a discrepancy.
+Use this page when executing with LLM assistance, tracing calculations or
+investigating a discrepancy.
 
 ## Reading order
 
 1. Read the process's human guide for the task and completion boundary.
-2. Read its technical reference below for exact mechanics and diagnostics.
+2. Read the relevant process details for exact mechanics and diagnostics.
 3. Read the relevant entries in [decisions](decisions.md) and
    [calculation discrepancies](calculation-discrepancies.md).
-4. For workbook transfers, read the process's handoff trace. It records observed
-   lineage, not approval to populate an external template.
+4. For workbook transfers, trace the source range through formulas and report
+   outputs before entering values in a final template.
 5. Apply the detailed controls below and retain run-specific evidence.
 
-| Process | Detailed reference | Workbook handoff |
-|---|---|---|
-| BSCR | [Technical reference](bscr/technical-contract.md) | [Trace](bscr/handoff.md) |
-| PRA | [Runbook](pra/runbook.md) | Final submission template remains to be located |
-| Lloyd's | [Runbook](lloyds/runbook.md) | Final submission template and destination cells remain to be confirmed |
-| Global Exposures | [Runbook](global-exposures/runbook.md) | CSV output pack |
-| Dataiku | [Current technical guide](dataiku/current-technical-guide.md) | Provisional aggregation, not a final return |
+| Process | Detailed reference |
+|---|---|
+| BSCR | [Runbook](bscr/runbook.md) |
+| PRA | [Runbook](pra/runbook.md) |
+| Lloyd's | [Runbook](lloyds/runbook.md) |
+| Global Exposures | [Runbook](global-exposures/runbook.md) |
+| Dataiku | [Current technical guide](dataiku/current-technical-guide.md) |
 
-Dataiku's [historical contract](dataiku/technical-contract.md) and
-[historical plan](dataiku/historical-plan.md) describe an earlier baseline;
-do not use them as specifications for the current query.
 
 ## Execution boundaries
 

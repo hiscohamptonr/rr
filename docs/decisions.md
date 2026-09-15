@@ -67,7 +67,7 @@ formula fill and pivot-source maintenance. Reconcile the rebuilt bridge to
 `Sheet1` before `piv` is refreshed. A refresh alone does not rebuild static cells.
 
 **Close with:** the approved executable or manual bridge procedure and a
-reconciled worked example. See [BSCR handoff trace](bscr/handoff.md).
+reconciled worked example. Keep the procedure with the BSCR runbook.
 
 ## BSCR-03
 
@@ -81,8 +81,8 @@ quality classifications and distinct contract counts. The available exposure
 pivots do not produce every Schedule X field.
 
 **Close with:** an approved final-cell map and traceable sources for every
-in-scope field, then a run-specific transfer/review log. Candidate matches in
-[the handoff trace](bscr/handoff.md) are not approval to populate a cell.
+in-scope field, then a run-specific transfer/review log. Do not infer approval
+from labels, colours or cached workbook values.
 
 ## BSCR-04
 

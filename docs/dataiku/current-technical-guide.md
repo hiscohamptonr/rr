@@ -1,14 +1,12 @@
 # Dataiku OED aggregates — current technical guide
 
 [Start here](../../README.md) · [Human guide](aggregation.md) ·
-[Shared controls](../operating-controls.md) · [Historical contract](technical-contract.md)
+[Shared controls](../operating-controls.md)
 
 This document describes the current canonical query, `dataiku/Dataiku-Aggs.sql`,
 for LLM interpretation, review, and controlled execution. It is a provisional
 policy-terms/peril implementation. It is not an approved final PRA, BSCR, or
-Lloyd's calculation. The historical [technical contract](technical-contract.md)
-and [historical plan](historical-plan.md) describe the earlier uncapped baseline
-and must not be merged with current behavior.
+Lloyd's calculation.
 
 ## Canonical query and physical inputs
 

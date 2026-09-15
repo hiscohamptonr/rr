@@ -27,19 +27,18 @@ Dataiku is a separate provisional route, not a replacement for the returns.
 
 ## Need more detail?
 
-- **LLMs and technical reviewers:** start with [LLM instructions](docs/llm-instructions.md), then the process's technical reference.
+- **LLMs and technical reviewers:** start with [LLM instructions](docs/llm-instructions.md).
 - **Something is blocked:** [decisions](docs/decisions.md) lists the answer or artifact needed and how to close the issue.
 - **Why is it blocked?** [calculation discrepancies](docs/calculation-discrepancies.md) contains the code and workbook evidence.
-- **Where do calculated values go?** The [BSCR trace](docs/bscr/handoff.md) distinguishes calculated outputs from missing final-cell maps; the final PRA and Lloyd's submission templates remain to be located.
 
-You do not need to read the technical pack before browsing a human guide.
+You do not need the detailed review instructions before browsing a human guide.
 
 ## Opening and updating the docs
 
 Open `.docx` files in Word. For Markdown, open this folder in VS Code, select
 `README.md` and press **⌘⇧V** for a formatted preview.
 
-Markdown is the maintained source. Each Word file contains only its process's short runbook—no appended checklist, technical reference or source-identity section.
+Markdown is the maintained source. Each Word file contains only its process's short runbook—no appended checklist or source-identity section.
 To regenerate them from the repository root, documentation maintainers need Python and Pandoc; calculation operators do not need Pandoc:
 
 ```bash
