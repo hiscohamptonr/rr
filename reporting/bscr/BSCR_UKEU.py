@@ -15,7 +15,8 @@ from tabulate import tabulate
 
 # EDIT THESE PATHS BEFORE RUNNING. Use None to skip a calculation.
 # Example: PRA_INPUT_CSV = Path(r"C:\Returns\my PRA extract.csv")
-BSCR_INPUT_CSV: Path | None = None
+
+BSCR_INPUT_CSV: Path | None = Path("output-from-bscr-sql-select.csv")
 PRA_INPUT_CSV: Path | None = None
 OUTPUT_DIR = Path("output")
 
