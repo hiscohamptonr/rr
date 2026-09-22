@@ -26,12 +26,12 @@ BSCR_ENTITIES = ("HIG", "HSA", "33", "3624", "HIC")
 QS_PCT_RETENTION = 0.5
 SRP_PCT_RETENTION = 0.3333
 SOURCE_COLUMNS = [
+    # Exact post-query column order used by old-process/BSCR_UKEU.py.
     "pml",
     "accgrpid",
     "uwritrname",
     "state",
     "userid1",
-    "branchname",
     "cntrycode",
     "is_geocoded",
 ]
@@ -247,7 +247,13 @@ def aggregate_regional_wide(data: pl.DataFrame) -> pl.DataFrame:
 
 def reshape_regional_exposure(wide_regions: pl.DataFrame) -> pl.DataFrame:
     """Convert true regional flags to one row per region and grouping key."""
-    region_flags = ["is_nahu", "is_na_eq", "is_jp", "is_eu", "is_us_all"]
+    region_flags = [
+        "is_nahu",
+        "is_na_eq",
+        "is_jp",
+        "is_eu",
+        "is_us_all",
+    ]
     return (
         wide_regions.unpivot(
             index=[
@@ -393,7 +399,7 @@ def run_pipeline(
     if bscr_source is not None:
         print("BSCR source:", bscr_input)
         print_source_summary(bscr_source)
-        destination = output_dir / "bscr-output.csv"
+        destination = output_dir / "output.csv"
         write_csv(build_bscr_output(bscr_source), destination)
         outputs["bscr"] = destination
     if pra_source is not None:

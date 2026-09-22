@@ -1,40 +1,69 @@
-# BSCR — SQL, CSV and Python
+# BSCR — SQL-only outputs
 
-## Run the calculation
+## Output scripts
 
-1. Run `bscr/sql/bscr-extract.sql` against the correct EDM database, checking `@peril` and `@policy_type` for the required run (the file defaults to `1/1`).
-2. Export the result as a CSV with these headers: `pml, accgrpid, uwritrname, state, userid1, branchname, cntrycode, is_geocoded`.
-3. Copy the CSV to the calculation PC and open `bscr/BSCR_UKEU.py`.
-4. Set the CSV filename and output folder at the top of the file using the example below, leaving `PRA_INPUT_CSV = None` for BSCR only.
-5. Use a new or empty output folder so old and new results cannot be mixed.
-6. Run `uv run --isolated --locked python bscr/BSCR_UKEU.py` from the repository folder, with no script arguments.
-7. Open `bscr-output.csv` in the configured output folder and reconcile the `ALL` rows' gross totals and contributing-row counts to the source CSV.
-8. Check retained/net totals, entity, geography and geocode splits, and investigate missing mappings or unexplained differences.
-9. Save the input CSV, output, SQL parameters, database snapshot and reconciliation together.
+1. Run `bscr/sql/bscr-extract.sql` against the approved EDM database, checking
+   `@policy_type` for the run. Its header table selects peril 1 (earthquake)
+   and peril 2 (wind) together.
+2. Export that source-level result as the raw CSV with headers:
+   `pml, accgrpid, uwritrname, state, userid1, cntrycode, is_geocoded, peril_id`.
+3. Run `bscr/sql/bscr-output.sql` against the same database snapshot and
+   parameters. Leave `@bscr_entity = NULL` for all entities, or set it to
+   `33`, `HIC`, `HIG`, `HSA` or `3624` for one entity.
+4. Export the aggregate result with headers:
+   `cntrycode, bscr_entity, region, sum_pml, sum_net, count_policies, is_geocoded`.
+5. The SQL routes `is_nahu`, `is_eu` and `is_jp` to peril 2, and
+   `is_na_eq`, `is_jp_eq`, `is_us_all`, `is_non_us` and `ALL` to peril 1.
+6. Reconcile the aggregate `ALL` rows to the earthquake raw/source totals,
+   then check entity, geography, geocode, retention and regional splits.
+7. Save both SQL files, parameters, raw output, aggregate output and database
+   snapshot together.
 
-## Set the paths
+Both active calculation steps are SQL-only. `BSCR_UKEU.py` is retained only
+as historical comparison material and is not part of the production process.
 
-Replace these example paths at the top of the Python file:
+## Entity workbooks through Power Query
 
-```python
-BSCR_INPUT_CSV = Path(r"C:\Returns\my BSCR extract.csv")
-PRA_INPUT_CSV = None
-OUTPUT_DIR = Path(r"C:\Returns\bscr-output")
-```
+Use one controlled `BSCR_Workings.xlsx` workbook as the calculation and
+schedule bridge. Select the entity in one settings cell rather than maintaining
+separate calculation logic for `33`, `HIC`, `HIG`, `HSA` and `3624`.
 
-The input path includes the **CSV filename**; the output path is a **folder**.
+1. Set the existing `Entity` setting in `Settings!B7`; its validation list
+   contains `33`, `HIC`, `HIG`, `HSA` and `3624`.
+2. Set that cell to the entity being prepared.
+3. Pass the same value to `@bscr_entity` in `bscr-output.sql`.
+4. Load the result into the controlled BSCR input table and refresh formulas
+   and pivots.
+5. Review the linked Schedule X(a), X(b), X(c) and X(f) areas; save a separate
+   copy only when a submission package is required.
 
-## Dependencies
+The workbook now uses `Settings!$B$7` for the schedule entity criteria and
+recalculates formulas on open. The Power Query source connection still needs
+to be configured in Excel to load the SQL result into the controlled input
+table. The files in `bscr/old-process/Workings/` are presentation targets, not
+SQL sources. Replace unresolved external-link inputs before production
+refreshes.
 
-UV reads the repository's `pyproject.toml` and `uv.lock`; `--isolated` avoids
-creating a local `.venv`, and `--locked` uses the recorded dependency versions.
-No separate installation step or database connection is needed.
+Schedule X(a) and X(b) still require approved EP-curve/premium sources.
+Schedule X(f) requires an approved distinct-contract identifier and count
+rule; `count_policies` is only a contributing-row count.
 
-## Check before using the output
+## Run controls
 
-- Keep source currency and units: the script does not convert to USD or millions.
-- Do not add overlapping regional rows together or treat `count_policies` as distinct contracts.
-- Confirm the existing retention rules (QS 50%, SRP 33.33%, QS first) and geography rules: the current hurricane flag includes every US row.
-- Stop on failed/partial exports, unexplained totals or policy-join multiplication; workbooks are not needed for this calculation.
+- Keep SQL `pml`/`net` in the database source currency and source units; SQL
+  does not apply FX or divide by 1,000,000.
+- The current workbook assumes source GBP, output USD, and
+  `Settings!B3 = 1.35` GBP-to-USD. It applies that rate once, then divides by
+  1,000,000 for USD millions. Do not paste workbook USD columns back into the
+  SQL source columns.
+- Do not add overlapping regional rows together.
+- Set `@qs_pct_retention` and `@srp_pct_retention` at the top of
+  `bscr-output.sql`; they are fractions (`0.5` and `0.3333` by default).
+- Confirm QS-first retention and the approved geography mappings.
+- Investigate failed or partial exports, unexplained totals and policy-join
+  multiplication before using the outputs.
+- Preserve raw and aggregate exports separately for reconciliation.
 
-**To return to later:** agree where the exposure results go in the final HIC template and obtain the separate EP curves, premiums and contract counts; this CSV is not the complete BSCR return.
+**To return to later:** map the approved Schedule X(a), X(b) and X(f) fields
+to SQL output metrics and identify the controlled sources for EP curves,
+premiums and distinct contract counts.
