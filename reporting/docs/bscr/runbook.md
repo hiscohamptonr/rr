@@ -24,6 +24,59 @@ geographic classification. The current query intentionally retains its current
 peril routing and additional regional output views. Do not attribute every
 regional difference to the geocode correction.
 
+## Automatic multi-entity population workbook
+
+Use `bscr/workbooks/BSCR_Auto_Population.xlsx`. It is separate from both the
+reconciliation report and the older `BSCR_Workings.xlsx`; those files are
+unchanged. The delivered workbook needs Excel only: no Python, macros,
+external workbook links or database connection.
+
+Tabs: **Instructions**, **SQL input**, **33**, **3624**, **HIC**, **HIG**,
+**HSA**, **Historical checks**. Each entity tab stacks the visible sections
+of Schedules X(a), X(b), X(c) and X(f), with navigation links and print breaks.
+
+1. Run `bscr-output.sql` with all entities selected. The workbook is initially
+   populated with the supplied `bscr_output_wseq.csv`.
+2. Clear all previous data rows in the **SQL input** Excel table. Paste the
+   eight output columns as values below the existing headers. Keep the
+   table; it expands for additional rows. Do not leave stale rows below a
+   shorter replacement. Recalculate in Excel.
+3. Leave **Input basis** as **Current SQL**. **Legacy check** is only for
+   the retained legacy query's eight-column, USD-converted output.
+4. Review input controls. Unknown/blank entities, missing entity populations,
+   invalid flags and nonnumeric measures require attention. The supplied
+   current output contains two blank-entity wind rows; they are exposed by
+   the controls, not silently allocated to an entity.
+5. Green cells are automatic and locked. Blue fields are manual and start
+   blank: premiums, models/EP losses, questionnaires and narratives. Old
+   template values are not silently carried into a new return.
+
+The agreed X(f) proxy is applied consistently: geocoded rows are
+modellable/modelled/detailed; ungeocoded rows are not modellable/not
+modelled/data deficient. US uses earthquake `ALL` rows with country US;
+all-other contracts are `ALL` minus US with the same geocode selection.
+Historical repeated schedule presentations are retained. Other modelability
+categories are zero under this proxy, not copied from April reallocations.
+Exposure is mapped to the historical all-other-lines fields; statutory
+property-catastrophe fields require separate manual input.
+
+SQL money is already USD: automatic formulas divide by 1,000,000 once and
+never apply FX again. Counts remain the SQL grouped-row count.
+
+**Historical checks** shows April saved values, the old-output baseline and
+live generated values separately. With legacy input, formulas reproduce the
+historical baseline. All five April overall counts and all 46 populated
+regional gross/net limits match that baseline; April's rounded totals and
+manual classification splits can differ. Current-input differences remain
+visible and are not treated as proof the corrected calculation is wrong.
+
+The builder `bscr/tools/build_population_workbook.py` is for local maintenance
+only. It verifies 630 automatic mappings with an independent Excel-function
+engine using both current and legacy data, and stores cached results so the
+delivered workbook opens populated. Excel remains responsible for refreshing
+formulas after subsequent pastes. Native Excel rendering/recalculation was
+not available during local verification.
+
 ## Concise reconciliation workbook
 
 Use `bscr/reconcile/results/BSCR_Reconciliation.xlsx`.
