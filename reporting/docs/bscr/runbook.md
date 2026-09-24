@@ -67,3 +67,9 @@ rule; `count_policies` is only a contributing-row count.
 **To return to later:** map the approved Schedule X(a), X(b) and X(f) fields
 to SQL output metrics and identify the controlled sources for EP curves,
 premiums and distinct contract counts.
+
+`bscr/BSCR_UKEU_original.py` preserves the original Marimo application,
+also archived at `bscr/old-process/BSCR_UKEU.py`. It connects directly to
+SQL Server and runs its embedded earthquake-only query before the Python
+aggregation. Its original policy/geocoding calculation defects are preserved,
+so its totals are not a correctness baseline for the corrected SQL output.

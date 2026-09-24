@@ -1,5 +1,5 @@
 -- SQL-only BSCR aggregation.
--- This reproduces the legacy BSCR_UKEU.py output without a Python step.
+-- Uses the legacy output schema with corrected policy/peril/geocode joins.
 -- The peril header table below selects earthquake (1) and wind (2) together.
 -- Region-to-peril routing is explicit in region_peril_lookup.
 -- Set @bscr_entity to 33, HIC, HIG, HSA or 3624 for one entity.
@@ -9,7 +9,8 @@
 -- Retention parameters are fractions: 0.5 = 50%; 0.3333 = 33.33%.
 -- Output headers: cntrycode, bscr_entity, region, sum_pml, sum_net,
 -- count_policies, is_geocoded. Region names identify the peril routing.
-DECLARE @policy_type int = 1;
+-- Policy types match peril IDs. Limits apply per policy and exposure grouping.
+-- The uncorrected bscr-extract.sql can differ from these corrected totals.
 DECLARE @qs_pct_retention decimal(9, 6) = 0.5;
 DECLARE @srp_pct_retention decimal(9, 6) = 0.3333;
 DECLARE @bscr_entity varchar(20) = NULL;
@@ -91,24 +92,18 @@ loc_exposure AS (
         is_geocoded
 ),
 policies AS (
-    SELECT DISTINCT
+    SELECT
         policy.accgrpid,
         policyid,
-        partof,
+        policy.policytype AS peril_id,
         CASE WHEN blanlimamt = 0 THEN 0 ELSE partof END AS policy_limit,
-        undcovamt,
-        blandedamt,
         accgrp.userid1,
         accgrp.branchname,
-        accgrp.UWritrname,
-        is_geocoded
+        accgrp.UWritrname
     FROM policy
     INNER JOIN accgrp
         ON accgrp.accgrpid = policy.accgrpid
-    INNER JOIN loc_exposure
-        ON loc_exposure.accgrpid = accgrp.accgrpid
-       AND loc_exposure.accgrpid = policy.accgrpid
-    WHERE policy.policytype = @policy_type
+    WHERE policy.policytype IN (SELECT peril_id FROM peril_selection)
 ),
 policy_exposure AS (
     SELECT
@@ -123,19 +118,21 @@ policy_exposure AS (
         branchname,
         cntrycode,
         uwritrname,
-        policies.is_geocoded
+        loc_exposure.is_geocoded
     FROM loc_exposure
     INNER JOIN policies
         ON policies.accgrpid = loc_exposure.accgrpid
+       AND policies.peril_id = loc_exposure.peril_id
     GROUP BY
         loc_exposure.peril_id,
         policies.accgrpid,
+        policies.policyid,
         state,
         userid1,
         branchname,
         cntrycode,
         uwritrname,
-        policies.is_geocoded,
+        loc_exposure.is_geocoded,
         policy_limit
 ),
 source_exposure AS (
