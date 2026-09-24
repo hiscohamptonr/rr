@@ -1,5 +1,5 @@
 -- SQL-only BSCR aggregation.
--- Uses the legacy output schema with corrected policy/peril/geocode joins.
+-- Preserves the legacy seven columns and appends the explicit peril ID.
 -- The peril header table below selects earthquake (1) and wind (2) together.
 -- Region-to-peril routing is explicit in region_peril_lookup.
 -- Set @bscr_entity to 33, HIC, HIG, HSA or 3624 for one entity.
@@ -8,7 +8,7 @@
 -- No /1,000,000 scaling. Disable workbook FX before loading converted output.
 -- Retention parameters are fractions: 0.5 = 50%; 0.3333 = 33.33%.
 -- Output headers: cntrycode, bscr_entity, region, sum_pml, sum_net,
--- count_policies, is_geocoded. Region names identify the peril routing.
+-- count_policies, is_geocoded, peril_id (1 = earthquake, 2 = wind).
 -- Policy types match peril IDs. Limits apply per policy and exposure grouping.
 -- The uncorrected bscr-extract.sql can differ from these corrected totals.
 DECLARE @gbp_to_usd decimal(18, 8) = 1.35;
@@ -333,7 +333,8 @@ final_output AS (
         sum_pml,
         sum_net,
         count_policies,
-        is_geocoded
+        is_geocoded,
+        peril_id
     FROM regional_long
     UNION ALL
     SELECT
@@ -343,7 +344,8 @@ final_output AS (
         sum_pml,
         sum_net,
         count_policies,
-        is_geocoded
+        is_geocoded,
+        peril_id
     FROM all_exposure
 )
 SELECT
@@ -353,7 +355,8 @@ SELECT
     sum_pml * @gbp_to_usd AS sum_pml,
     sum_net * @gbp_to_usd AS sum_net,
     count_policies,
-    is_geocoded
+    is_geocoded,
+    peril_id
 FROM final_output
 WHERE @bscr_entity IS NULL
    OR bscr_entity = @bscr_entity

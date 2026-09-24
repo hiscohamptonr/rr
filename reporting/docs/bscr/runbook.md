@@ -36,8 +36,9 @@ Resolve the [BSCR decisions](../decisions.md#bscr-01) before production use.
    Set `@gbp_to_usd` to the approved USD-per-GBP rate (default `1.35`).
    The final SELECT converts gross/net amounts to full USD; counts and
    grouping are unchanged. No division by 1,000,000 is applied in SQL.
-5. Export the aggregate result with these seven headers:
-   `cntrycode, bscr_entity, region, sum_pml, sum_net, count_policies, is_geocoded`.
+5. Export the aggregate result with these eight headers:
+   `cntrycode, bscr_entity, region, sum_pml, sum_net, count_policies, is_geocoded, peril_id`.
+   `peril_id` is explicit: `1` for earthquake (including `ALL`), `2` for wind.
 6. Preserve both SQL files, parameter values, exports, row counts, totals and
    source-snapshot identity together. A successful export does not resolve the
    policy-grain or workbook defects below.
@@ -100,8 +101,10 @@ no configured Power Query connection.
 1. Resolve the affected workbook blockers below before a production refresh.
 2. Set `Settings!B7` to the entity being prepared. Its validation list contains
    33, HIC, HIG, HSA and 3624. If filtering the SQL, use the same entity value.
-3. Load the **seven-column aggregate**, not the eight-column raw export, into
-   `BSCR Source Data!A:G` with headers in row 1. Clear stale controlled input
+3. Load only the **first seven columns of the aggregate**, not the raw export,
+   into `BSCR Source Data!A:G` with headers in row 1. Preserve the eighth
+   column (`peril_id`) in the CSV for audit; do not paste it into H, which
+   contains workbook formulas. Clear stale controlled input
    rows. First adapt the currency formulas as described below; preserve
    unrelated worksheet content.
 4. `BSCR Output!C:E` uses `SUMIFS` over source D:F, matching entity, region and

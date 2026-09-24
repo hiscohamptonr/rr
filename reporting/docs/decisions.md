@@ -66,8 +66,9 @@ schedule references. **Required role:** BSCR workbook owner.
 **Evidence:** BSCR-001, BSCR-007, BSCR-008, BSCR-009 and BSCR-010.
 
 The current bridge uses `SUMIFS`, not the historical static `output!A:F`.
-Approve loading the seven-column aggregate into source A:G while preserving
-H:K. Define complete entity/region/geocode key coverage, stale-row clearing,
+Approve loading the first seven aggregate columns into source A:G while
+preserving H:K; retain the appended `peril_id` in the CSV, not worksheet H.
+Define complete entity/region/geocode key coverage, stale-row clearing,
 formula fill and pivot-source maintenance; no Power Query connection or input
 Excel table is configured. Resolve the pivot range ending at row 50, Japanese
 peril-key reversal, and shared formulas that still hard-code the FX rate.
