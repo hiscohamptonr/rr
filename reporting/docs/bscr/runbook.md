@@ -11,6 +11,14 @@ and aggregation → CSV → Excel**. The repository supplies the queries, not an
 approved database snapshot, connection, or reporting-cycle methodology.
 Resolve the [BSCR decisions](../decisions.md#bscr-01) before production use.
 
+For a single-peril comparison, use `bscr/sql/bscr-output-peril1.sql`.
+It runs the full aggregate calculation with `peril = 1` and `policytype = 1`
+for every region, including `is_nahu`, `is_eu` and `is_jp`. Those labels
+therefore contain earthquake exposure in this variant, not wind. FX,
+retention, entity filtering and the eight-column aggregate output are retained;
+`peril_id` is always `1`. This replaces the mistakenly supplied
+`bscr-extract-peril1.sql` raw extract. The main dual-peril queries are unchanged.
+
 ## Run the two SQL exports
 
 1. In an approved SQL Server client, select the approved EDM database and run
