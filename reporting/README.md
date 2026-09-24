@@ -1,9 +1,9 @@
 # Regulatory returns
 
 PRA uses **SQL → CSV → Excel**; follow its short runbook.
-BSCR uses **SQL-only extraction and aggregation → CSV → Excel**. The retained
-Python script is historical comparison material, not the current BSCR route.
-The BSCR guide records unresolved SQL controls and workbook handoff defects.
+BSCR uses **`bscr-output.sql` → paste eight result columns into Excel →
+automatically populated entity schedules**. No Python is needed on the work
+machine. Historical comparison is kept in a separate reconciliation workbook.
 Global Exposures uses **SQL → CSV → offline Python**, with four input files
 and local spatial calculations.
 Python dependencies come from each project's `pyproject.toml` and `uv.lock`;
@@ -20,6 +20,12 @@ what to run, what to check and where the process stops.
 | Lloyd's supplementary | [Lloyd's guide](docs/lloyds/runbook.md) | [Lloyd's](docs/generated/Lloyds-Supplementary-Jan-2026.docx) |
 | Global Exposures | [Global Exposures guide](docs/global-exposures/runbook.md) | [Global Exposures](docs/generated/Global-Exposures-Jan-2026.docx) |
 | Dataiku aggregation | [Dataiku guide](docs/dataiku/aggregation.md) | — |
+
+**BSCR files:** [current SQL](bscr/sql/bscr-output.sql) ·
+[population workbook](bscr/workbooks/BSCR_Auto_Population.xlsx) ·
+[reconciliation workbook](bscr/reconcile/results/BSCR_Reconciliation.xlsx).
+To refresh the population workbook: clear its old SQL input rows (keep the
+headers/table), then paste the new results. Blue schedule fields remain manual.
 
 Before running anything, use the [short run checklist](docs/operating-controls.md).
 The guides describe the January 2026 implementation, not approval for a new

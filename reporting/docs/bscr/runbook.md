@@ -1,198 +1,193 @@
-# BSCR reporting and reconciliation
+# BSCR — populate the schedules
 
-[Back to reporting index](../index.md)
+[Back to reporting guides](../../README.md)
 
-## Two SQL scripts
+## Use these files
 
-| Script | Purpose |
+| Purpose | File |
 |---|---|
-| `bscr/sql/bscr-extract-legacy.sql` | Full historical aggregate output, despite the extract name. Earthquake/policy type 1 throughout; preserves the old geocode duplication and cap grouping, plus Python-style case-sensitive geographic matching. Diagnostic only. |
-| `bscr/sql/bscr-output.sql` | Current aggregate with corrected geocode joins, policy-ID grouping and earthquake/wind routing. |
+| Produce current results in SQL Server | [bscr-output.sql](../../bscr/sql/bscr-output.sql) |
+| Populate the schedules in Excel | [BSCR_Auto_Population.xlsx](../../bscr/workbooks/BSCR_Auto_Population.xlsx) |
+| Review old-versus-new evidence separately | [BSCR_Reconciliation.xlsx](../../bscr/reconcile/results/BSCR_Reconciliation.xlsx) |
 
-Both return:
+The population workbook needs Excel only: no Python, macros, database connection
+or external workbook links. Its seven tabs are **Instructions**, **SQL input**,
+**33**, **3624**, **HIC**, **HIG** and **HSA**. Each entity tab contains
+Schedules X(a), X(b), X(c) and X(f), with navigation links and print breaks.
+
+## Refresh the population workbook
+
+1. Clear the old data on **SQL input**, keeping the header row and table.
+2. Paste the new eight-column results from **bscr-output.sql** below the
+   headers. The entity tabs populate automatically.
+
+Use the full output for all entities. Excel calculation must be automatic;
+if values do not refresh, use **Calculate Now**. Do not leave old data rows
+below a shorter replacement.
+
+The input columns, in order, are:
 
 `cntrycode, bscr_entity, region, sum_pml, sum_net, count_policies, is_geocoded, peril_id`
 
-Both default to full USD using source GBP multiplied by `@gbp_to_usd = 1.35`.
-Neither divides by 1,000,000. The legacy script can be run with FX 1 when
-comparing directly to the historical source-currency CSV. Keep FX, retention
-and entity parameters identical when comparing the two scripts.
+There is no historical-check tab or legacy mode in this population workbook.
+Do not paste the legacy query's output into it as a historical comparison;
+use the separate reconciliation workbook for that evidence.
 
-The scripts are not otherwise equivalent: the legacy query reconstructs the
-whole old workflow, including earthquake-only regions and case-sensitive
-geographic classification. The current query intentionally retains its current
-peril routing and additional regional output views. Do not attribute every
-regional difference to the geocode correction.
+## What populates automatically
 
-## Automatic multi-entity population workbook
+Green cells are automatic and locked. Blue cells remain manual and start blank:
+premiums, EP/model losses, questionnaires and narratives. Blank does not mean zero.
+The workbook is a population aid, not a complete or approved regulatory return.
 
-Use `bscr/workbooks/BSCR_Auto_Population.xlsx`. It is separate from both the
-reconciliation report and the older `BSCR_Workings.xlsx`; those files are
-unchanged. The delivered workbook needs Excel only: no Python, macros,
-external workbook links or database connection.
+| Population / measure | Agreed mapping |
+|---|---|
+| Modellable / modelled / detailed exposure | `is_geocoded = 1` |
+| Not modellable / not modelled / data deficient | `is_geocoded = 0` |
+| US contracts in X(f) | Earthquake `ALL` rows with `cntrycode = 'US'` |
+| All other contracts in X(f) | Earthquake `ALL` minus US, using the same geocode selection |
+| Count | Sum the supplied `count_policies`; do not scale or apply FX |
+| Gross / net exposure | Sum the relevant SQL gross/net values and divide by 1,000,000 |
 
-Tabs: **Instructions**, **SQL input**, **33**, **3624**, **HIC**, **HIG**,
-**HSA**. Each entity tab stacks the visible sections
-of Schedules X(a), X(b), X(c) and X(f), with navigation links and print breaks.
+The geocoding classification is the agreed workbook proxy. It does not reproduce
+April's separate manual reallocations. Other modelability categories are zero
+under this proxy. Repeated schedule presentations are intentional; do not sum
+all regions or schedules into a portfolio total.
 
-1. Clear the old data on **SQL input**, keeping the header row and table.
-2. Paste the new eight-column results from `bscr-output.sql` below the
-   headers. The entity tabs populate automatically.
+The automatic X(a)/X(b) exposure fields are the **all-other-lines** limits,
+split between modelled and not modelled. Statutory property-catastrophe fields
+require separate manual inputs; the SQL does not identify that classification.
 
-The initial input is copied from the uploaded
-`bscr/reconcile/bscr_output_wseq.csv` (737 rows), not sample data or a live
-database connection. Its source is recorded in the SQL input header comment.
-This workbook accepts current SQL output only; historical reconciliation is
-kept in the separate reconciliation workbook.
+### Regional limits in X(c)
 
-Green entity-sheet cells are automatic and locked. Blue fields remain manual:
-premiums, EP losses, questionnaires and narratives. They start blank, not zero.
-The two blank-entity wind rows in the supplied input are not assigned to an entity.
+| Schedule region | SQL region | Peril |
+|---|---|---|
+| Atlantic hurricane | `is_nahu` | Wind, 2 |
+| North American earthquake | `is_na_eq` | Earthquake, 1 |
+| European windstorm | `is_eu` | Wind, 2 |
+| Japanese earthquake | `is_jp_eq` | Earthquake, 1 |
+| Japanese typhoon | `is_jp` | Wind, 2 |
 
-The agreed X(f) proxy is applied consistently: geocoded rows are
-modellable/modelled/detailed; ungeocoded rows are not modellable/not
-modelled/data deficient. US uses earthquake `ALL` rows with country US;
-all-other contracts are `ALL` minus US with the same geocode selection.
-Historical repeated schedule presentations are retained. Other modelability
-categories are zero under this proxy, not copied from April reallocations.
-Exposure is mapped to the historical all-other-lines fields; statutory
-property-catastrophe fields require separate manual input.
+`ALL` is earthquake only. Regional populations overlap. Canada is included in
+NA earthquake, alongside the selected US states in the current query. NA
+hurricane currently includes all US exposure.
 
-SQL money is already USD: automatic formulas divide by 1,000,000 once and
-never apply FX again. Counts remain the SQL grouped-row count.
+## Currency and the preloaded input
 
-There is no historical-comparison tab or legacy mode in this working workbook.
-Old-versus-new evidence and the historical template checks are documented in
-`bscr/reconcile/results/BSCR_Reconciliation.xlsx`, not mixed into the population workflow.
+The SQL assumes source GBP and applies `@gbp_to_usd` once in its final SELECT
+(default **1.35**). It returns **full USD**, not USD millions. The population
+workbook divides monetary amounts by one million and does **not** apply FX again.
 
-The builder `bscr/tools/build_population_workbook.py` is for local maintenance
-only. It verifies 630 automatic mappings with an independent Excel-function
-engine using current data, and stores cached results so the
-delivered workbook opens populated. Excel remains responsible for refreshing
-formulas after subsequent pastes. Native Excel rendering/recalculation was
-not available during local verification.
+The initial 737 input rows were copied from the uploaded
+[bscr_output_wseq.csv](../../bscr/reconcile/bscr_output_wseq.csv). They are not
+sample data or a live query result. We reproduced all 737 rows from the uploaded
+EDM tables, with exact counts and monetary differences below one cent. The
+initial filename is recorded in the SQL input header comment; it does not
+change automatically when new results are pasted.
 
-## Concise reconciliation workbook
+Two supplied GB wind rows have no recognized entity. They are retained in the
+input but not assigned to one of the five entity tabs. Their gross/net exposure
+totals approximately USD 26.353bn; this is separate from earthquake `ALL`.
 
-Use `bscr/reconcile/results/BSCR_Reconciliation.xlsx`.
+## Reconciliation evidence
 
-- **What this tests:** the evidence chain, pass criteria, units and limits.
-- **Schedule X(f):** the 33 original and 3624/HIC/HIG/HSA v2 templates
-  reconciled to the old saved output and legacy query. Fifteen summary
-  count/gross/net values are shown first; expand the supporting rows for
-  all 528 populated count/exposure cells tested, including source-cell references.
-- **Counts:** old saved output, legacy query, corrected query and new saved
-  output side by side; the change is corrected minus legacy.
-- **Gross exposure / Net exposure:** the same comparison in USD millions.
+[BSCR_Reconciliation.xlsx](../../bscr/reconcile/results/BSCR_Reconciliation.xlsx)
+has five tabs: **What this tests**, **Schedule X(f)**, **Counts**, **Gross exposure**
+and **Net exposure**. It keeps reconciliation separate from routine population.
 
-The February templates' cached amounts match the old **pre-FX** output divided
-by 1,000. Their USD headings are not supported by those saved monetary values:
-the later USD workings' 1.35 conversion is missing. This currency mismatch is
-separate from the thousand/million scaling issue and the geocoding correction.
-The Schedule X(f) summary shows the actual saved template value, matching
-pre-FX output/query values, the USD value after multiplying by 1.35 without
-changing scale, and finally USD millions after dividing by 1,000. Counts
-are unscaled. The expandable checks use normalized USDm to establish lineage;
-a numeric match after normalization does not validate the template as saved.
-Premiums, EP curves, narratives, percentage fields, unpopulated/zero-placeholder
-categories and later April reclassifications are outside this Schedule X(f) test.
+The evidence chain is:
 
-Verified on the supplied source snapshot:
+**Corrected February templates → old saved output → legacy query → corrected query → new saved output.**
 
-1. Original embedded SQL plus original Python aggregation reproduces all 452
-   rows of `bscr/output/bscr-output.csv`, with exact counts and monetary differences
-   below one cent in source currency.
-2. The retained legacy SQL reproduces those 452 rows after the documented FX
-   conversion and matches all 49 groups in the later March USD workings.
-3. Current SQL reproduces all 737 rows of
-   `bscr/reconcile/bscr_output_wseq.csv`, with exact counts and monetary
-   differences below one cent.
-4. Changing only the geocode join explains the whole `ALL` reduction:
-   USD 4.813bn gross, USD 3.051bn net and 285 grouped output rows. All 184
-   affected accounts have both geocoded and ungeocoded earthquake locations.
-5. Policy-ID cap grouping has no material effect on this snapshot: no account
-   has multiple type-1 policies. This does not establish that policy identity
-   is unnecessary on other populations.
+- The template check uses the **33 original** and **3624/HIC/HIG/HSA v2** files
+  in `bscr/reconcile/filled in templates/`. All 528 populated count/exposure
+  cells tested in the selected X(f) blocks match the old pre-FX output and
+  legacy query within rounding. Other fields are not certified by that test.
+- Those saved February monetary values are **pre-FX amounts divided by 1,000**,
+  despite USD headings. The later workings' **1.35 USD conversion was missing**.
+  Currency and thousand/million scaling are separate issues. The reconciliation
+  shows the saved value, USD conversion at the same scale, and USD millions.
+  Green `MATCH` means agreement **after the stated conversion**, not that the
+  original template was already in USD. Counts never receive FX.
+- The original SQL and Python aggregation reproduce all **452 historical CSV
+  rows**. The retained legacy SQL also matches the **49 groups** in the later
+  March USD workings. Counts are exact and monetary residuals are below one cent.
+- Fixing only the geocode join explains the whole earthquake `ALL` reduction:
+  **USD 4.813bn gross, USD 3.051bn net and 285 grouped rows**, across **184 accounts**
+  with both geocode flags. The old join duplicated exposure between buckets;
+  source policies were not deleted.
+- Policy-ID grouping has no material effect on this snapshot because no account
+  has multiple type-1 policies. This is not a rule for other datasets.
+- All five April total counts and all 46 populated regional gross/net limits
+  match the later historical workings (regional money within USD 1). Rounded
+  overall amounts and manually reallocated classification splits can differ.
 
-These are local DuckDB replays checked against the saved outputs, not live
-SQL Server executions. SQL Server's case-insensitive comparisons were reproduced
-locally; the legacy query's geographic comparisons deliberately remain
-case-sensitive to reproduce Python. `count_policies` counts grouped source rows,
-not verified distinct contracts. This is numerical reconciliation, not approval
-of all policy terms, modelability classifications or regulatory filing figures.
+These checks were local DuckDB replays against saved outputs, not live SQL Server
+executions. Case-insensitive source comparisons and legacy Python's case-sensitive
+geographic comparisons were distinguished. File dates do not prove submission.
 
-## Preserve the source evidence
+## Legacy query and reference workbooks
 
-The six uploaded CSVs remain under `bscr/sql/edm-parquet/`; the folder name is
-historical and the files are CSV, not Parquet:
+Only two SQL scripts are retained:
 
-| File | Verified rows |
+| Script | Role |
+|---|---|
+| `bscr-output.sql` | Current calculation and input to the population workbook |
+| [bscr-extract-legacy.sql](../../bscr/sql/bscr-extract-legacy.sql) | Full historical aggregate, despite its name; diagnostic only |
+
+The legacy query intentionally retains old geocode duplication, cap grouping
+without policy ID, earthquake/policy type 1 for every region, and Python-style
+case-sensitive geography. Both queries return eight columns and default to
+full USD at FX 1.35. Set legacy FX to 1 only to compare directly with the old
+unconverted CSV. The queries differ in more than geocoding; the controlled
+reconciliation isolated each change rather than attributing every region's
+difference to the join.
+
+`workings_old_report.xlsx` is identical to `Workings_with_geocodingFW.xlsx`.
+The earlier workings divide by 1,000; FW divides by 1,000,000. The later
+`Workings_with_geocodingFW - Including blanks USD.xlsx` applies FX and restores
+US exposure to NA hurricane. Do not reproduce the earlier workbook's US omission
+in the current calculation.
+
+The older `bscr/workbooks/BSCR_Workings.xlsx` is **not the current population
+workbook**. Its fixed key/pivot ranges, reversed Japanese peril references and
+hard-coded workbook FX are documented historical-workbook risks, not descriptions
+of `BSCR_Auto_Population.xlsx`. Do not follow its A:G loading route for the new
+workbook, which takes all eight columns in its Excel table.
+
+The original Marimo script remains in `BSCR_UKEU_original.py` and `old-process/`.
+The separate `BSCR_UKEU.py` is an older seven-column CSV workflow and is not the
+current producer. Source templates, raw workbooks and historical CSVs remain
+unchanged as evidence; their cached errors, external links and placeholders do
+not constitute approved current inputs.
+
+## Raw source data and verification limits
+
+The six uploaded files in `bscr/sql/edm-parquet/` are **CSV**, despite the folder name:
+
+| File | Verified rows / content |
 |---|---:|
 | `01_accgrp.csv` | 354,830 |
 | `02_policy.csv` | 662,306 |
 | `03_loc.csv` | 1,008,151 |
 | `04_loccvg.csv` | 1,053,391 |
-| `source_metadata.csv` | 1 metadata record |
+| `source_metadata.csv` | Database, time, collation and row counts |
 | `06_schema.csv` | Source column definitions |
 
-Do not deduplicate, apply FX, edit or resave the raw files in Excel.
-Preserve empty strings separately from SQL NULL representations. The supplied
-state field has 30 literal `NULL` markers in French/German locations; raw lexical
-values were preserved for inspection. Source metadata identifies
-`HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_EDM` and its case-insensitive collation.
-All four source counts match the metadata.
+All four source counts match the metadata for
+`HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_EDM`. Preserve duplicates, native
+values and empty strings versus NULL representations. Do not apply FX or
+resave the raw CSVs in Excel. The 30 literal `NULL` state markers occur in
+French/German locations; raw lexical values were preserved during inspection.
 
-Historical input workbooks and saved output CSVs are retained unchanged.
-`workings_old_report.xlsx` is identical to `Workings_with_geocodingFW.xlsx`.
-The earlier workings divide by 1,000; FW divides by 1,000,000. The later
-`Workings_with_geocodingFW - Including blanks USD.xlsx` applies 1.35 FX and
-restores US exposure to NA hurricane. Its 49 raw groups match the historical
-CSV without excluding US. Do not reproduce the earlier workbook's omission
-as a production rule.
+The local builder `bscr/tools/build_population_workbook.py` verifies **630
+automatic mappings** with an independent Excel-function engine and writes cached
+formula results. Input-change tests covered counts, gross/net, US subtraction,
+wind routing and missing-entity warnings. Native Excel rendering/recalculation
+was not available locally; the work-laptop review remains necessary.
 
-The five April templates retain the historical total counts. All 46 populated
-regional gross/net exposure limits match the later USD workings within USD 1.
-Their modelability allocations, premiums, EP placeholders, cached errors and
-external links remain separate controls; dates do not prove submission.
-
-The original Marimo application remains at `bscr/BSCR_UKEU_original.py` and
-`bscr/old-process/BSCR_UKEU.py`. The separate `bscr/BSCR_UKEU.py` is an older
-seven-column CSV workflow, not a consumer of these eight-column query outputs.
-
-## Running the retained queries
-
-1. Select the approved EDM database/snapshot in your SQL client.
-2. Run `bscr-extract-legacy.sql` for the historical comparison and
-   `bscr-output.sql` for the corrected result. Both are read-only.
-3. Use the same frozen source and the same FX, retention and entity settings.
-4. Save results separately; retain all eight headers and preserve NULLs.
-5. Compare `ALL` for earthquake totals and compare regional populations
-   separately. Never sum across overlapping regional rows.
-
-Current routing: wind (2) feeds `is_nahu`, `is_eu`, `is_jp`; earthquake (1)
-feeds `ALL`, `is_na_eq`, `is_jp_eq`, `is_us_all`, `is_non_us`. The legacy
-script uses earthquake for every retained regional label and does not add
-`is_jp_eq` or `is_non_us`. Uppercase US states do not match the legacy Python
-lookup's title-case names; current SQL includes the selected US states through
-case-insensitive matching. Canada is included in both.
-
-## Loading the current reporting workbook
-
-`bscr/workbooks/BSCR_Workings.xlsx` is the operational workbook, not the concise
-reconciliation report. Preserve its approved formulas and controls:
-
-1. Back it up before loading. Load only the first seven aggregate columns into
-   `BSCR Source Data!A:G`; retain `peril_id` in the CSV, not worksheet H.
-2. Clear stale input rows and verify complete entity/region/geocode coverage.
-   `BSCR Output!A2:F70` has a fixed list of keys; new keys are not added by recalculation.
-3. Bypass workbook FX on every gross/net path before loading USD query output.
-   Some formulas hard-code 1.35, so changing `Settings!B3` alone is insufficient.
-   Retain division by 1,000,000 only where USD millions are required.
-4. Reconcile cached/formula outputs after Excel refresh. Do not infer modelled,
-   modellable, detailed or data-deficient classifications solely from geocoding.
-5. Review the controlled final template, external links, premium source,
-   modelability decisions and EP results before transfer or sign-off.
-
-See the [discrepancy register](../calculation-discrepancies.md#bscr-schedule-x)
-for remaining controls, especially policy-cap allocation grain and distinct
-contract counting.
+Remaining controls include the source currency/rate for each new run, policy-cap
+allocation grain, grouped-row versus distinct-contract counts, unmapped entities,
+manual supplemental inputs and final-template approval. The agreed geocode proxy
+is implemented; it is not a claim that all April manual classifications were
+reproduced. See [decisions](../decisions.md#bscr-01) and the
+[discrepancy register](../calculation-discrepancies.md#bscr-schedule-x).

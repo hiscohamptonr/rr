@@ -47,46 +47,63 @@ acceptance targets for later periods.
 BSCR methodology owner and EDM/query owner. **Evidence:** BSCR-002, BSCR-003,
 BSCR-004, BSCR-006, BSCR-011 and PRA-005/PRA-006 in the discrepancy register.
 
-Approve or correct the policy/account/geography/geocode joins and cap grain;
-supply executable before/after-join counts and distinct-policy/account controls.
-Resolve all-US NAHU behaviour, competing geography lists, entity/null rules and
-retention precision. Define distinct-contract identity and X(f) classification;
-`count_policies` is not a distinct-contract source.
-Approve the current two-peril selection with its single policy-type filter,
-region-to-peril routing and earthquake-only `ALL` control. The retained Python
-comparison is not an equivalent producer for this SQL contract.
+The geocoding join correction is numerically verified on the uploaded snapshot:
+184 affected accounts explain the entire earthquake `ALL` reduction of
+USD 4.813bn gross, USD 3.051bn net and 285 grouped rows. This part is no longer
+an unexplained reconciliation difference. Policy-ID grouping has no material
+effect on this snapshot; policy caps still apply by geography/geocode group.
+
+The population workbook implements the agreed proxy: geocoded means
+modellable/modelled/detailed; ungeocoded means not modellable/not modelled/data
+deficient. It uses the existing grouped-row count. This is not a distinct-contract
+definition or a reproduction of April's separate manual allocations.
+
+Remaining decisions: approve cap allocation grain, all-US NAHU coverage, entity
+null handling, distinct-contract identity, retention precision and reporting
+acceptance. Current SQL matches policy type to each selected peril; wind feeds
+NAHU/Europe/Japan typhoon and earthquake feeds `ALL` and earthquake regions.
+The legacy query uses peril/policy type 1 throughout and is diagnostic only.
 
 **Close with:** versioned query/mappings and diagnostic results on an approved
 snapshot, plus the separately identified contract-count producer.
 
 ## BSCR-02
 
-**Scope:** SQL aggregate → `BSCR Source Data` → `BSCR Output` → pivots and
-schedule references. **Required role:** BSCR workbook owner.
-**Evidence:** BSCR-001, BSCR-007, BSCR-008, BSCR-009 and BSCR-010.
+**Scope:** current SQL → Excel input table → five entity schedule tabs.
+**Required role:** BSCR workbook owner. **Evidence:** the population workbook,
+BSCR runbook, reconciliation workbook and BSCR-001/007/008/009/010.
 
-The current bridge uses `SUMIFS`, not the historical static `output!A:F`.
-Approve loading the first seven aggregate columns into source A:G while
-preserving H:K; retain the appended `peril_id` in the CSV, not worksheet H.
-Define complete entity/region/geocode key coverage, stale-row clearing,
-formula fill and pivot-source maintenance; no Power Query connection or input
-Excel table is configured. Resolve the pivot range ending at row 50, Japanese
-peril-key reversal, and shared formulas that still hard-code the FX rate.
+`BSCR_Auto_Population.xlsx` has a `BSCRInput` Excel table containing all eight
+SQL columns. Its entity schedules use direct formulas, with no intermediate
+fixed key list or pivot. Monetary values arrive in USD and are divided by one
+million only. Japanese earthquake and typhoon use their corresponding explicit
+peril/region keys. There is no historical tab or legacy mode in this workbook.
 
-**Close with:** an approved loading/refresh procedure and controlled workbook
-whose source, output, currency conversions, pivots and schedule references
-reconcile on a worked example. Keep the procedure with the BSCR runbook.
+The user procedure is two steps: clear old data rows while keeping the table
+and headers, then paste current SQL results. Final work-laptop Excel testing,
+controlled use and handling of unmapped entities remain to be signed off.
+The fixed-range, reversed-Japan and repeated-FX findings apply to the older
+`BSCR_Workings.xlsx`, which remains reference material, not the current route.
+
+**Close with:** approved refreshed-output examples in Excel, complete entity
+coverage, handling of blank/unknown entities and a controlled workbook version.
 
 ## BSCR-03
 
 **Scope:** final Schedule X input mapping and supplemental sources. **Required
 role:** BSCR return owner, modelling owner, and final-template reviewer.
 
-Supply a field-by-field source-to-HIC-cell map for the controlled template,
-including entity, peril, gross/net basis, currency/unit and any transformation.
-Provide independent sources for EP curves, premiums, narratives, model/data
-quality classifications and distinct contract counts. The available exposure
-pivots do not produce every Schedule X field.
+An implemented field map now exists in `build_population_workbook.py`, with
+630 automatic mappings checked against the supplied current output. It applies
+the agreed geocoding proxy and historical all-other-lines exposure mapping.
+The reconciliation workbook demonstrates the template/old-output/legacy/current
+chain separately from the routine population workbook.
+
+Provide remaining sources for EP/model losses, premiums, statutory
+property-catastrophe inputs and narratives; blue fields are intentionally blank.
+Confirm the controlled final return layout and decide whether grouped-row counts
+are acceptable or need replacement with a distinct-contract source. Do not treat
+the available exposure formulas as complete population of every Schedule X field.
 
 **Close with:** an approved final-cell map and traceable sources for every
 in-scope field, then a run-specific transfer/review log. Do not infer approval
@@ -97,9 +114,12 @@ from labels, colours or cached workbook values.
 **Scope:** controlled HIC template. **Required role:** BSCR template owner.
 **Evidence:** BSCR-005.
 
-Select the current template and resolve output-relevant `#REF!`, `#VALUE!` and
-older external workbook links. Identify any explicitly approved out-of-scope
-fields; do not infer safe cells from fill colour.
+The top-level April templates supply the layout of the new population workbook;
+their original cached errors/external links are not carried into the generated
+file. The population workbook has no external workbook links or macros, but still
+requires work-laptop Excel review and manual supplemental inputs. Select the
+controlled final filing template and explicitly scope any unpopulated fields;
+historical filenames and matching totals do not establish submission approval.
 
 **Close with:** controlled template identity and a formula/link review showing
 that every in-scope output and editable destination is usable.
