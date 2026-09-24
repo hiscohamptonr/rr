@@ -151,14 +151,20 @@ US exposure to NA hurricane. Do not reproduce the earlier workbook's US omission
 in the current calculation.
 
 The older `bscr/workbooks/BSCR_Workings.xlsx` is **not the current population
-workbook**. Its fixed key/pivot ranges, reversed Japanese peril references and
-hard-coded workbook FX are documented historical-workbook risks, not descriptions
-of `BSCR_Auto_Population.xlsx`. Do not follow its A:G loading route for the new
-workbook, which takes all eight columns in its Excel table.
+workbook**. It has been restored byte-for-byte from Git revision `d6aedfe`
+(21 September 2026), the preceding distinct version after a later workbook was
+reported corrupt. The restored package/XML and formula/cached-value
+loading pass local checks, but native Excel opening still needs confirmation.
+Earlier versions' fixed ranges, Japanese peril references and workbook FX
+remain historical risks. Use the new eight-column population workbook for the
+current route, not this restored reference file.
 
-The original Marimo script remains in `BSCR_UKEU_original.py` and `old-process/`.
-The separate `BSCR_UKEU.py` is an older seven-column CSV workflow and is not the
-current producer. Source templates, raw workbooks and historical CSVs remain
+Historical Python scripts are archived in `bscr/old-process/`:
+`BSCR_UKEU.py` is the original Marimo application and
+`BSCR_UKEU_offline.py` is the older seven-column CSV workflow. The duplicate
+top-level Marimo copy was removed after verifying identical contents. Neither
+is the current producer; active local builders remain in `bscr/tools/`.
+Source templates, raw workbooks and historical CSVs remain
 unchanged as evidence; their cached errors, external links and placeholders do
 not constitute approved current inputs.
 
