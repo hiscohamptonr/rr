@@ -19,6 +19,110 @@ retention, entity filtering and the eight-column aggregate output are retained;
 `peril_id` is always `1`. This replaces the mistakenly supplied
 `bscr-extract-peril1.sql` raw extract. The main dual-peril queries are unchanged.
 
+## Historical workbook reconciliation
+
+The supplied files in `bscr/reconcile/` are candidate historical evidence,
+not confirmed submissions. The detailed comparison is
+`bscr/reconcile/results/bscr_workbook_collection_reconciliation.xlsx`;
+its companion CSVs record every template version change, cached error,
+regional limit comparison, file hash, and control total.
+
+- `workings_old_report.xlsx` is byte-identical to
+  `Workings_with_geocodingFW.xlsx`.
+- `Workings_with_geocoding.xlsx` and the FW version have the same 47 raw
+  output rows. The first divides by 1,000; FW divides by 1,000,000.
+- `Workings_with_geocodingFW - Including blanks USD.xlsx` restores US
+  exposure to NA hurricane, has 49 output groups, and explicitly applies
+  1.35 FX followed by division by 1,000,000. Its static output sheet is not
+  linked to `Sheet1`; a GB/HIC amount differs between those populations.
+- The February corrected template family is the 33 original plus the four
+  other entities' v2 files. Their total counts and source amounts divided
+  by 1,000 match the workings, despite template US$M labels.
+- The five top-level April templates retain the historical total counts.
+  All 46 populated regional gross/net limit cells match the later USD
+  workings within USD 1; four 3624 Japan cells are blank with no source rows.
+  Overall limits are rounded, and modelability categories are reallocated.
+  Do not equate those categories directly with `is_geocoded`.
+- The templates still contain external links, cached errors and nonnumeric
+  EP-curve placeholders. Premiums, modelability judgments and actual
+  submission status need independent evidence.
+
+## Export raw EDM data for local diagnosis
+
+The aggregate exports cannot explain changes at policy/location level.
+Use `bscr/sql/bscr-edm-raw-export.sql` on the same approved EDM snapshot as
+the comparison outputs. It reads source tables only; it does not modify
+data or enable database settings. It requires existing SNAPSHOT isolation
+or an immutable read-only database/database snapshot. Otherwise it stops.
+Use a standalone connection and discard partial results if the batch fails.
+
+Save its six resultsets as UTF-8 CSVs with headers, in a controlled directory
+outside Git, for example `$HOME/bscr-edm/snapshot`:
+
+| File | Content and scope |
+|---|---|
+| `manifest.csv` | Run ID, server/database, UTC start, isolation, four source counts and scopes |
+| `schema.csv` | Actual source column types, precision, scale and nullability |
+| `accgrp.csv` | All account IDs, entity/treaty marker, branch and underwriter |
+| `policy.csv` | Every type-1/type-2 policy ID, account ID and relevant limit/deductible terms |
+| `loc.csv` | All location/account IDs, location number, geocode flag, state/country and coordinates |
+| `loccvg.csv` | Every peril-1/peril-2 coverage row, values, deductibles, limits and currencies |
+
+Preserve duplicate coverage rows and orphan/unmapped records. Do not use
+`DISTINCT`, pre-join the tables, restrict entities, aggregate or apply FX.
+The exporter uses literal `\N` for SQL NULL; empty strings are distinct.
+Use a CSV writer that quotes commas, quotes and embedded newlines correctly;
+do not open and resave the raw files in Excel. Numeric style-3 conversion
+requires SQL Server 2016 or later. All four data files carry one run ID.
+
+From the `reporting/` directory, import the six files:
+
+```sh
+uv run --no-project --with duckdb --with sqlglot python bscr/tools/edm_local.py import \
+  --input "$HOME/bscr-edm/snapshot" \
+  --database "$HOME/bscr-edm/snapshot/source.duckdb"
+```
+
+The importer checks headers, run IDs, counts and numeric conversions before
+publishing a new database. It preserves lexical source values in `raw_*`
+tables, creates typed `accgrp`, `policy`, `loc`, `loccvg` views, and stores
+the manifest, schema and CSV SHA-256 hashes. Unexported schema columns are
+not fabricated as NULL. Existing databases are not overwritten.
+
+Inspect policy counts without joining to locations:
+
+```sh
+uv run --no-project --with duckdb --with sqlglot python bscr/tools/edm_local.py query \
+  --database "$HOME/bscr-edm/snapshot/source.duckdb" \
+  --sql "SELECT policytype, COUNT(*) AS rows, COUNT(DISTINCT policyid) AS distinct_policy_ids FROM policy GROUP BY policytype"
+```
+
+Replay an aggregate query locally:
+
+```sh
+uv run --no-project --with duckdb --with sqlglot python bscr/tools/edm_local.py replay \
+  --database "$HOME/bscr-edm/snapshot/source.duckdb" \
+  --query bscr/sql/bscr-output.sql \
+  --output "$HOME/bscr-edm/snapshot/current-output.csv"
+```
+
+Repeat with `bscr/sql/bscr-output_old_logic.sql` and a different output name
+to isolate the policy-side geocode join; that variant is **not** a complete
+historical reproduction. `bscr-output-peril1.sql` uses earthquake for all
+regions; `bscr-output-all-perils.sql` provides both perils in every region,
+including `ALL`. Keep identical source files and parameter values between
+runs. Optional `--fx` and `--entity` overrides are recorded alongside the
+declared defaults in each output's `.provenance.json`, with source hashes
+and engine versions.
+
+Local replay adapts T-SQL to DuckDB; collation and numeric aggregation can
+differ from SQL Server. First compare the local current-query output with
+the server output from the **same snapshot**. Then change one calculation
+dimension at a time: geocode join, policy cap grouping, peril selection,
+regional scope. Trace residuals by account/policy/location before approving
+a change. `count_policies` remains a grouped-source-row count; distinct
+policy IDs are a separate diagnostic, not automatically a contract count.
+
 ## Run the two SQL exports
 
 1. In an approved SQL Server client, select the approved EDM database and run
