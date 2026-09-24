@@ -23,7 +23,6 @@ import numpy as np
 from openpyxl import Workbook, load_workbook
 from openpyxl.comments import Comment
 from openpyxl.formula.translate import Translator
-from openpyxl.formatting.rule import CellIsRule, FormulaRule
 from openpyxl.styles import Alignment, Font, PatternFill, Protection
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.pagebreak import Break
@@ -149,91 +148,24 @@ def create_workbook(rows):
         calcId=191029, fullCalcOnLoad=True, forceFullCalc=True
     )
     info = wb.create_sheet("Instructions")
-    title(info, "BSCR — automatic schedule population")
-    info["A4"] = "Reporting year (1 January as-at)"
-    info["B4"] = 2026
-    info["A5"] = "USD to USD millions"
-    info["B5"] = 1000000
-    info["A6"] = "Input basis"
-    info["B6"] = "Current SQL"
-    info["B4"].fill = MANUAL
-    info["B6"].fill = MANUAL
-    mode = DataValidation(type="list", formula1='"Current SQL,Legacy check"')
-    info.add_data_validation(mode)
-    mode.add(info["B6"])
-    instructions = [
-        "1. SQL input is preloaded with the supplied current SQL output. To refresh, clear ALL old table data rows, then paste the eight SQL columns as VALUES below the headers. Keep the Excel table and its headers.",
-        "2. Use the full output for all five entities (@bscr_entity = NULL). The Excel table expands when rows are pasted. Do not leave old rows beneath a shorter replacement.",
-        "3. Current SQL mode: region/peril routing matches bscr-output.sql. ALL uses earthquake. Legacy check mode is only for bscr-extract-legacy.sql output already converted to USD at FX 1.35.",
-        "4. Green cells are automatic and locked. Blue cells require manual input: premiums, model/EP losses, questionnaires and narratives. Blank manual cells do NOT mean zero. There are no carried-forward historical premium or loss values.",
-        "5. Agreed classification: geocoded = modellable/modelled/detailed; ungeocoded = not modellable/not modelled/data deficient. All other contracts = ALL minus US. Counts use count_policies, not independently verified distinct contracts.",
-        "6. Amounts in the SQL input are FULL USD. Formulas divide by 1,000,000 once; they NEVER apply another FX conversion. SQL exposure is placed in the historical all-other-lines fields. Statutory property-cat fields need separate manual data.",
-        "7. Each entity tab stacks X(a), X(b), X(c) and X(f). Repeated schedule populations are intentional; do not sum regions or schedule sections together.",
-        "8. Historical checks compare saved April figures, the historical baseline and the LIVE generated cells. Classification differences are expected where April was manually reallocated. Corrected-input differences are not hidden.",
-        "9. Recalculate in Excel after pasting (Automatic calculation / Calculate Now). This is a working population workbook, not a complete or approved regulatory return. Review manual fields before transfer.",
-    ]
-    for row, text in enumerate(instructions, 9):
-        info.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
-        info.cell(row, 1, text).alignment = Alignment(wrap_text=True, vertical="center")
-        info.row_dimensions[row].height = 46
-    info["A20"] = "Input rows"
-    info["B20"] = "=COUNTA(BSCRInput[region])"
-    info["A21"] = "Unmapped/unrecognized entity rows"
-    info["B21"] = "=COUNTA(BSCRInput[region])-" + "-".join(
-        f'COUNTIF(BSCRInput[bscr_entity],"{e}")' for e in ENTITIES
-    )
-    info["A22"] = "Blank-entity gross USDm (overlapping regions)"
-    info["B22"] = '=SUMIFS(BSCRInput[sum_pml],BSCRInput[bscr_entity],"")/1000000'
-    info["A23"] = "Missing geocode flags"
-    info["B23"] = "=COUNTBLANK(BSCRInput[is_geocoded])"
-    info["A24"] = "Invalid peril values"
-    info["B24"] = (
-        "=COUNTA(BSCRInput[region])-COUNTIF(BSCRInput[peril_id],1)-COUNTIF(BSCRInput[peril_id],2)"
-    )
-    for i, ent in enumerate(ENTITIES, 26):
-        info.cell(i, 1, ent + " ALL rows")
-        info.cell(
-            i,
-            2,
-            f'COUNTIFS(BSCRInput[bscr_entity],"{ent}",BSCRInput[region],"ALL",BSCRInput[peril_id],1)',
-        )
-        info.cell(i, 2).value = "=" + info.cell(i, 2).value
-    info["A32"] = (
-        "Do not ignore unmapped exposure. Missing entity ALL rows indicate incomplete input. Blank-entity exposure is not assigned to any entity tab."
-    )
-    info.merge_cells("A32:H33")
-    info["A32"].alignment = Alignment(wrap_text=True)
-    info.column_dimensions["A"].width = 48
-    info.column_dimensions["B"].width = 26
-    for col in "CDEFGH":
-        info.column_dimensions[col].width = 13
-    info.merge_cells("D20:H24")
-    info["D20"] = (
-        '=IF(OR(B21>0,B23>0,B24>0,COUNTIF(B26:B30,0)>0,SUM(B34:B37)>0),"REVIEW INPUT: unmapped rows, invalid fields or missing entities. See controls at left.","INPUT CONTROLS PASS: still complete and review all blue manual fields.")'
-    )
-    info["D20"].alignment = Alignment(wrap_text=True, vertical="center")
-    warning = PatternFill("solid", fgColor="FFC7CE")
-    info.conditional_formatting.add(
-        "B21 B23:B24", CellIsRule(operator="greaterThan", formula=["0"], fill=warning)
-    )
-    info.conditional_formatting.add(
-        "B26:B30", CellIsRule(operator="equal", formula=["0"], fill=warning)
-    )
-    for row, field, label in [
-        (34, "sum_pml", "Missing / nonnumeric gross amounts"),
-        (35, "sum_net", "Missing / nonnumeric net amounts"),
-        (36, "count_policies", "Missing / nonnumeric counts"),
+    title(info, "BSCR — refresh the schedules")
+    for row, text in [
+        (
+            4,
+            "1. Clear the old data on the SQL input tab. Keep the header row and table.",
+        ),
+        (
+            7,
+            "2. Paste the new eight-column results from bscr-output.sql below the headers. The entity tabs populate automatically.",
+        ),
     ]:
-        info.cell(row, 1, label)
-        info.cell(row, 2, f"=COUNTA(BSCRInput[region])-COUNT(BSCRInput[{field}])")
-    info["A37"] = "Invalid geocode flags"
-    info["B37"] = (
-        "=COUNTA(BSCRInput[region])-COUNTIF(BSCRInput[is_geocoded],0)-COUNTIF(BSCRInput[is_geocoded],1)"
-    )
-    info.conditional_formatting.add(
-        "B34:B37", CellIsRule(operator="greaterThan", formula=["0"], fill=warning)
-    )
-    info.freeze_panes = "C9"
+        info.merge_cells(start_row=row, start_column=1, end_row=row + 1, end_column=8)
+        info.cell(row, 1, text).font = Font(name="Calibri", size=14)
+        info.cell(row, 1).alignment = Alignment(wrap_text=True, vertical="center")
+        info.row_dimensions[row].height = 36
+        info.row_dimensions[row + 1].height = 24
+    for col in "ABCDEFGH":
+        info.column_dimensions[col].width = 14
 
     inp = wb.create_sheet("SQL input")
     inp.append(HEADERS)
@@ -276,7 +208,7 @@ def create_workbook(rows):
         ws["A2"] = "Entity"
         ws["B2"] = ent
         ws["D2"] = "Input basis"
-        ws["E2"] = "='Instructions'!B6"
+        ws["E2"] = "Current SQL"
         ws["G2"] = "Coverage"
         ws["H2"] = (
             f'=IF(COUNTIFS(BSCRInput[bscr_entity],"{ent}",BSCRInput[region],"ALL",BSCRInput[peril_id],1)=0,"NO INPUT FOR ENTITY","INPUT PRESENT")'
@@ -343,7 +275,7 @@ def create_workbook(rows):
                 if r <= end_row and dim.height:
                     ws.row_dimensions[r + offset].height = dim.height
             ws.cell(2 + offset, 2, ent)
-            ws.cell(3 + offset, 2, "=DATE('Instructions'!B4,1,1)")
+            ws.cell(3 + offset, 2, "=DATE(2026,1,1)")
             if sh in ("Schedule X(c)", "Schedule X(f)"):
                 c = ws.cell(3 + offset, 3)
                 if c.__class__.__name__ != "MergedCell":
@@ -387,16 +319,8 @@ def create_workbook(rows):
                         )
             if sh == "Schedule X(c)":
                 for row, region, peril in REGIONS:
-                    reg = (
-                        'IF(Instructions!$B$6="Legacy check","is_jp","is_jp_eq")'
-                        if region == "is_jp_eq"
-                        else region
-                    )
-                    per = (
-                        'IF(Instructions!$B$6="Legacy check",1,2)'
-                        if peril == 2
-                        else "1"
-                    )
+                    reg = region
+                    per = str(peril)
                     for col, m in [("E", "sum_pml"), ("F", "sum_net")]:
                         put(
                             f"{col}{row}",
@@ -527,137 +451,11 @@ class Evaluator:
         return self.cell(sheet, name)
 
 
-def add_historical_checks(wb, maps):
-    ws = wb.create_sheet("Historical checks")
-    title(ws, "Historical checks — expected differences are visible", 9)
-    ws.merge_cells("A2:I3")
-    ws["A2"] = (
-        "April templates are the layout/reference. Legacy baseline uses old saved CSV x1.35. This tab does not force current corrected output to equal history. Classification splits use the agreed geocode proxy and can differ from April manual reallocations."
-    )
-    ws["A2"].alignment = Alignment(wrap_text=True)
-    headers = [
-        "Entity",
-        "Field",
-        "Measure",
-        "April saved",
-        "Legacy baseline",
-        "April minus legacy",
-        "Live workbook",
-        "Live minus legacy",
-        "Interpretation",
-    ]
-    for i, h in enumerate(headers, 1):
-        ws.cell(5, i, h).fill = NAVY
-        ws.cell(5, i).font = Font(bold=True, color="FFFFFF")
-    old = list(csv.DictReader((BSCR / "output/bscr-output.csv").open()))
-    targets = []
-    for ent in ENTITIES:
-        source = load_workbook(
-            BSCR / "reconcile" / f"2026 BSCR - UKEU - {ent}.xlsx", data_only=True
-        )
-        for row, geo in [(12, None), (10, 1), (11, 0)]:
-            for col, m in [("K", "count_policies"), ("L", "sum_pml"), ("M", "sum_net")]:
-                targets.append(
-                    (
-                        ent,
-                        "Schedule X(f)",
-                        f"{col}{row}",
-                        m,
-                        "ALL",
-                        geo,
-                        source["Schedule X(f)"][f"{col}{row}"].value,
-                        "ALL total" if row == 12 else "Geocode-proxy classification",
-                    )
-                )
-        for row, region, peril in REGIONS:
-            for col, m in [("E", "sum_pml"), ("F", "sum_net")]:
-                targets.append(
-                    (
-                        ent,
-                        "Schedule X(c)",
-                        f"{col}{row}",
-                        m,
-                        "is_jp" if region == "is_jp_eq" else region,
-                        None,
-                        source["Schedule X(c)"][f"{col}{row}"].value,
-                        region,
-                    )
-                )
-        source.close()
-    for row, (ent, sh, addr, m, region, geo, saved, label) in enumerate(targets, 6):
-        baseline = sum(
-            float(r[m])
-            for r in old
-            if r["bscr_entity"] == ent
-            and r["region"] == region
-            and (geo is None or int(r["is_geocoded"]) == geo)
-        )
-        if m != "count_policies":
-            baseline *= 1.35 / 1000000
-        target = (
-            wb[ent]
-            .cell(
-                int(re.search(r"\d+", addr).group()) + maps[(ent, sh)],
-                ord(addr[0]) - 64,
-            )
-            .coordinate
-        )
-        values = [
-            ent,
-            f"{sh}!{addr} — {label}",
-            m,
-            saved,
-            baseline,
-            f"=D{row}-E{row}" if saved is not None else None,
-            f"='{ent}'!{target}",
-            f"=G{row}-E{row}",
-            "April classification may differ"
-            if "classification" in label
-            else "Rounded April total"
-            if label == "ALL total" and m != "count_policies"
-            else "Compare region/peril basis",
-        ]
-        for col, value in enumerate(values, 1):
-            ws.cell(row, col, value)
-        for col in range(4, 9):
-            ws.cell(row, col).number_format = (
-                "#,##0" if m == "count_policies" else MONEY
-            )
-        ws.row_dimensions[row].height = 32
-        for col in (2, 9):
-            ws.cell(row, col).alignment = Alignment(wrap_text=True)
-    for col in "ABCDEFGHI":
-        ws.column_dimensions[col].width = 22
-    ws.column_dimensions["B"].width = 44
-    ws.column_dimensions["I"].width = 35
-    ws.freeze_panes = "D6"
-    ws.auto_filter.ref = f"A5:I{ws.max_row}"
-    ws.sheet_view.showGridLines = False
-    ws.conditional_formatting.add(
-        f"H6:H{ws.max_row}",
-        FormulaRule(
-            formula=['ABS(H6)>IF($C6="count_policies",0,0.00000001)'],
-            fill=PatternFill("solid", fgColor="FFF2CC"),
-        ),
-    )
-    ws.conditional_formatting.add(
-        f"H6:H{ws.max_row}",
-        FormulaRule(
-            formula=['ABS(H6)<=IF($C6="count_policies",0,0.00000001)'], fill=AUTO
-        ),
-    )
-    return targets
-
-
 def verify(wb, rows, maps, specs):
     ev = Evaluator(wb, rows)
     for spec in specs:
         region = spec["region"]
         peril = spec["peril"]
-        if wb["Instructions"]["B6"].value == "Legacy check":
-            peril = 1
-            if region == "is_jp_eq":
-                region = "is_jp"
         expected = sum(
             r[spec["measure"]]
             for r in rows
@@ -734,25 +532,15 @@ def main():
     args = parser.parse_args()
     rows = read_input(args.input)
     wb, maps, specs = create_workbook(rows)
-    add_historical_checks(wb, maps)
-    current = verify(wb, rows, maps, specs)
-    # Independent historical data exercise: the same Excel formulas, not a second mapping implementation.
-    legacy = []
-    with (BSCR / "output/bscr-output.csv").open() as f:
-        for r in csv.DictReader(f):
-            for k in ("sum_pml", "sum_net"):
-                r[k] = float(r[k]) * 1.35
-            for k in ("count_policies", "is_geocoded"):
-                r[k] = int(r[k])
-            r["peril_id"] = 1
-            legacy.append(r)
-    wb["Instructions"]["B6"] = "Legacy check"
-    historical = verify(wb, legacy, maps, specs)
-    checks = wb["Historical checks"]
-    for row in range(6, checks.max_row + 1):
-        if abs(float(historical.cell(checks.title, f"H{row}"))) > 0.00000001:
-            raise AssertionError(("legacy mismatch", row))
-    wb["Instructions"]["B6"] = "Current SQL"
+    try:
+        source_label = str(args.input.resolve().relative_to(ROOT))
+    except ValueError:
+        source_label = str(args.input.resolve())
+    wb["SQL input"]["A1"].comment = Comment(
+        f"Initially loaded from {source_label}. This is a copy of the uploaded CSV, "
+        "not a live database connection. This source note does not change when new results are pasted.",
+        "Input source",
+    )
     current = verify(wb, rows, maps, specs)
     save_cached(wb, current, args.output)
     saved = load_workbook(args.output, data_only=True)
@@ -760,7 +548,6 @@ def main():
         "Instructions",
         "SQL input",
         *ENTITIES,
-        "Historical checks",
     ]
     for ent in ENTITIES:
         addr = saved[ent].cell(12 + maps[(ent, "Schedule X(f)")], 11).coordinate
@@ -773,7 +560,7 @@ def main():
         assert z.testzip() is None
         assert not any("externalLinks/" in p for p in z.namelist())
     print(
-        f"Created {args.output}: 5 entity sheets, {len(specs)} verified automatic cells; current and legacy formula scenarios passed."
+        f"Created {args.output}: 5 entity sheets, {len(specs)} automatic mappings verified against current input."
     )
 
 
