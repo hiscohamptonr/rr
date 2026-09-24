@@ -28,13 +28,26 @@ regional difference to the geocode correction.
 
 Use `bscr/reconcile/results/BSCR_Reconciliation.xlsx`.
 
-- **Read first:** which saved outputs were reproduced and what was established.
-- **Counts:** old saved output versus legacy query; new saved output versus
-  corrected query; entity totals and the difference.
+- **What this tests:** the evidence chain, pass criteria, units and limits.
+- **Schedule X(f):** the 33 original and 3624/HIC/HIG/HSA v2 templates
+  reconciled to the old saved output and legacy query. Fifteen summary
+  count/gross/net values are shown first; expand the supporting rows for
+  all 528 populated count/exposure cells tested, including source-cell references.
+- **Counts:** old saved output, legacy query, corrected query and new saved
+  output side by side; the change is corrected minus legacy.
 - **Gross exposure / Net exposure:** the same comparison in USD millions.
-- **Why it changed:** the measured effect of changing only the geocode join,
-  and the separate state-matching/peril-routing changes.
-- **Queries and source:** the two scripts, source database, raw row counts and hashes.
+
+The February templates' cached amounts match the old **pre-FX** output divided
+by 1,000. Their USD headings are not supported by those saved monetary values:
+the later USD workings' 1.35 conversion is missing. This currency mismatch is
+separate from the thousand/million scaling issue and the geocoding correction.
+The Schedule X(f) summary shows the actual saved template value, matching
+pre-FX output/query values, the USD value after multiplying by 1.35 without
+changing scale, and finally USD millions after dividing by 1,000. Counts
+are unscaled. The expandable checks use normalized USDm to establish lineage;
+a numeric match after normalization does not validate the template as saved.
+Premiums, EP curves, narratives, percentage fields, unpopulated/zero-placeholder
+categories and later April reclassifications are outside this Schedule X(f) test.
 
 Verified on the supplied source snapshot:
 
