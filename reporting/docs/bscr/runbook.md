@@ -1,3 +1,9 @@
+---
+Report: BSCR
+Time: 1d
+---
+
+
 # BSCR — SQL-only outputs
 
 ## Output scripts
