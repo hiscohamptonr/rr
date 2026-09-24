@@ -1,5 +1,7 @@
 # BSCR — populate the schedules
 
+The reconciliation workbook is [BSCR_Reconciliation.xlsx](../../bscr/reconcile/results/BSCR_Reconciliation.xlsx) in `bscr/reconcile/results/`; the auto-population workbook is [BSCR_Auto_Population.xlsx](../../bscr/workbooks/BSCR_Auto_Population.xlsx) in `bscr/workbooks/`.
+
 [Back to reporting guides](../../README.md)
 
 ## Use these files
