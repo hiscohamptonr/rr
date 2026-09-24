@@ -10,7 +10,7 @@
 -- Output headers: cntrycode, bscr_entity, region, sum_pml, sum_net,
 -- count_policies, is_geocoded, peril_id (1 = earthquake, 2 = wind).
 -- Policy types match peril IDs. Limits apply per policy and exposure grouping.
--- The uncorrected bscr-extract.sql can differ from these corrected totals.
+-- Legacy comparison: bscr-extract-legacy.sql reproduces the historical workflow.
 DECLARE @gbp_to_usd decimal(18, 8) = 1.35;
 DECLARE @qs_pct_retention decimal(9, 6) = 0.5;
 DECLARE @srp_pct_retention decimal(9, 6) = 0.3333;

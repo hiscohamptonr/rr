@@ -1,273 +1,137 @@
----
-Report: BSCR
-Time: 1d
----
+# BSCR reporting and reconciliation
 
+[Back to reporting index](../index.md)
 
-# BSCR — SQL-only outputs
+## Two SQL scripts
 
-Paths below are relative to `reporting/`. The current route is **SQL extraction
-and aggregation → CSV → Excel**. The repository supplies the queries, not an
-approved database snapshot, connection, or reporting-cycle methodology.
-Resolve the [BSCR decisions](../decisions.md#bscr-01) before production use.
-
-For a single-peril comparison, use `bscr/sql/bscr-output-peril1.sql`.
-It runs the full aggregate calculation with `peril = 1` and `policytype = 1`
-for every region, including `is_nahu`, `is_eu` and `is_jp`. Those labels
-therefore contain earthquake exposure in this variant, not wind. FX,
-retention, entity filtering and the eight-column aggregate output are retained;
-`peril_id` is always `1`. This replaces the mistakenly supplied
-`bscr-extract-peril1.sql` raw extract. The main dual-peril queries are unchanged.
-
-## Historical workbook reconciliation
-
-The supplied files in `bscr/reconcile/` are candidate historical evidence,
-not confirmed submissions. The detailed comparison is
-`bscr/reconcile/results/bscr_workbook_collection_reconciliation.xlsx`;
-its companion CSVs record every template version change, cached error,
-regional limit comparison, file hash, and control total.
-
-- `workings_old_report.xlsx` is byte-identical to
-  `Workings_with_geocodingFW.xlsx`.
-- `Workings_with_geocoding.xlsx` and the FW version have the same 47 raw
-  output rows. The first divides by 1,000; FW divides by 1,000,000.
-- `Workings_with_geocodingFW - Including blanks USD.xlsx` restores US
-  exposure to NA hurricane, has 49 output groups, and explicitly applies
-  1.35 FX followed by division by 1,000,000. Its static output sheet is not
-  linked to `Sheet1`; a GB/HIC amount differs between those populations.
-- The February corrected template family is the 33 original plus the four
-  other entities' v2 files. Their total counts and source amounts divided
-  by 1,000 match the workings, despite template US$M labels.
-- The five top-level April templates retain the historical total counts.
-  All 46 populated regional gross/net limit cells match the later USD
-  workings within USD 1; four 3624 Japan cells are blank with no source rows.
-  Overall limits are rounded, and modelability categories are reallocated.
-  Do not equate those categories directly with `is_geocoded`.
-- The templates still contain external links, cached errors and nonnumeric
-  EP-curve placeholders. Premiums, modelability judgments and actual
-  submission status need independent evidence.
-
-## Export raw EDM data for local diagnosis
-
-The aggregate exports cannot explain changes at policy/location level.
-Use `bscr/sql/bscr-edm-raw-export.sql` on the same approved EDM snapshot as
-the comparison outputs. It reads source tables only; it does not modify
-data or enable database settings. It requires existing SNAPSHOT isolation
-or an immutable read-only database/database snapshot. Otherwise it stops.
-Use a standalone connection and discard partial results if the batch fails.
-
-Save its six resultsets as UTF-8 CSVs with headers, in a controlled directory
-outside Git, for example `$HOME/bscr-edm/snapshot`:
-
-| File | Content and scope |
+| Script | Purpose |
 |---|---|
-| `manifest.csv` | Run ID, server/database, UTC start, isolation, four source counts and scopes |
-| `schema.csv` | Actual source column types, precision, scale and nullability |
-| `accgrp.csv` | All account IDs, entity/treaty marker, branch and underwriter |
-| `policy.csv` | Every type-1/type-2 policy ID, account ID and relevant limit/deductible terms |
-| `loc.csv` | All location/account IDs, location number, geocode flag, state/country and coordinates |
-| `loccvg.csv` | Every peril-1/peril-2 coverage row, values, deductibles, limits and currencies |
+| `bscr/sql/bscr-extract-legacy.sql` | Full historical aggregate output, despite the extract name. Earthquake/policy type 1 throughout; preserves the old geocode duplication and cap grouping, plus Python-style case-sensitive geographic matching. Diagnostic only. |
+| `bscr/sql/bscr-output.sql` | Current aggregate with corrected geocode joins, policy-ID grouping and earthquake/wind routing. |
 
-Preserve duplicate coverage rows and orphan/unmapped records. Do not use
-`DISTINCT`, pre-join the tables, restrict entities, aggregate or apply FX.
-The exporter uses literal `\N` for SQL NULL; empty strings are distinct.
-Use a CSV writer that quotes commas, quotes and embedded newlines correctly;
-do not open and resave the raw files in Excel. Numeric style-3 conversion
-requires SQL Server 2016 or later. All four data files carry one run ID.
+Both return:
 
-From the `reporting/` directory, import the six files:
+`cntrycode, bscr_entity, region, sum_pml, sum_net, count_policies, is_geocoded, peril_id`
 
-```sh
-uv run --no-project --with duckdb --with sqlglot python bscr/tools/edm_local.py import \
-  --input "$HOME/bscr-edm/snapshot" \
-  --database "$HOME/bscr-edm/snapshot/source.duckdb"
-```
+Both default to full USD using source GBP multiplied by `@gbp_to_usd = 1.35`.
+Neither divides by 1,000,000. The legacy script can be run with FX 1 when
+comparing directly to the historical source-currency CSV. Keep FX, retention
+and entity parameters identical when comparing the two scripts.
 
-The importer checks headers, run IDs, counts and numeric conversions before
-publishing a new database. It preserves lexical source values in `raw_*`
-tables, creates typed `accgrp`, `policy`, `loc`, `loccvg` views, and stores
-the manifest, schema and CSV SHA-256 hashes. Unexported schema columns are
-not fabricated as NULL. Existing databases are not overwritten.
+The scripts are not otherwise equivalent: the legacy query reconstructs the
+whole old workflow, including earthquake-only regions and case-sensitive
+geographic classification. The current query intentionally retains its current
+peril routing and additional regional output views. Do not attribute every
+regional difference to the geocode correction.
 
-Inspect policy counts without joining to locations:
+## Concise reconciliation workbook
 
-```sh
-uv run --no-project --with duckdb --with sqlglot python bscr/tools/edm_local.py query \
-  --database "$HOME/bscr-edm/snapshot/source.duckdb" \
-  --sql "SELECT policytype, COUNT(*) AS rows, COUNT(DISTINCT policyid) AS distinct_policy_ids FROM policy GROUP BY policytype"
-```
+Use `bscr/reconcile/results/BSCR_Reconciliation.xlsx`.
 
-Replay an aggregate query locally:
+- **Read first:** which saved outputs were reproduced and what was established.
+- **Counts:** old saved output versus legacy query; new saved output versus
+  corrected query; entity totals and the difference.
+- **Gross exposure / Net exposure:** the same comparison in USD millions.
+- **Why it changed:** the measured effect of changing only the geocode join,
+  and the separate state-matching/peril-routing changes.
+- **Queries and source:** the two scripts, source database, raw row counts and hashes.
 
-```sh
-uv run --no-project --with duckdb --with sqlglot python bscr/tools/edm_local.py replay \
-  --database "$HOME/bscr-edm/snapshot/source.duckdb" \
-  --query bscr/sql/bscr-output.sql \
-  --output "$HOME/bscr-edm/snapshot/current-output.csv"
-```
+Verified on the supplied source snapshot:
 
-Repeat with `bscr/sql/bscr-output_old_logic.sql` and a different output name
-to isolate the policy-side geocode join; that variant is **not** a complete
-historical reproduction. `bscr-output-peril1.sql` uses earthquake for all
-regions; `bscr-output-all-perils.sql` provides both perils in every region,
-including `ALL`. Keep identical source files and parameter values between
-runs. Optional `--fx` and `--entity` overrides are recorded alongside the
-declared defaults in each output's `.provenance.json`, with source hashes
-and engine versions.
+1. Original embedded SQL plus original Python aggregation reproduces all 452
+   rows of `bscr/output/bscr-output.csv`, with exact counts and monetary differences
+   below one cent in source currency.
+2. The retained legacy SQL reproduces those 452 rows after the documented FX
+   conversion and matches all 49 groups in the later March USD workings.
+3. Current SQL reproduces all 737 rows of
+   `bscr/reconcile/bscr_output_wseq.csv`, with exact counts and monetary
+   differences below one cent.
+4. Changing only the geocode join explains the whole `ALL` reduction:
+   USD 4.813bn gross, USD 3.051bn net and 285 grouped output rows. All 184
+   affected accounts have both geocoded and ungeocoded earthquake locations.
+5. Policy-ID cap grouping has no material effect on this snapshot: no account
+   has multiple type-1 policies. This does not establish that policy identity
+   is unnecessary on other populations.
 
-Local replay adapts T-SQL to DuckDB; collation and numeric aggregation can
-differ from SQL Server. First compare the local current-query output with
-the server output from the **same snapshot**. Then change one calculation
-dimension at a time: geocode join, policy cap grouping, peril selection,
-regional scope. Trace residuals by account/policy/location before approving
-a change. `count_policies` remains a grouped-source-row count; distinct
-policy IDs are a separate diagnostic, not automatically a contract count.
+These are local DuckDB replays checked against the saved outputs, not live
+SQL Server executions. SQL Server's case-insensitive comparisons were reproduced
+locally; the legacy query's geographic comparisons deliberately remain
+case-sensitive to reproduce Python. `count_policies` counts grouped source rows,
+not verified distinct contracts. This is numerical reconciliation, not approval
+of all policy terms, modelability classifications or regulatory filing figures.
 
-## Run the two SQL exports
+## Preserve the source evidence
 
-1. In an approved SQL Server client, select the approved EDM database and run
-   `bscr/sql/bscr-extract.sql`. Its `peril_selection` selects peril 1
-   (earthquake) and 2 (wind) together. Both use the single
-   `@policy_type = 1` filter: confirm that policy population is appropriate
-   for both perils; the query does not select a separate policy type per peril.
-2. Export the raw/source result with these eight headers, in order:
-   `pml, accgrpid, uwritrname, state, userid1, cntrycode, is_geocoded, peril_id`.
-   These are already capped account/geography aggregates, not location or
-   individual-policy detail.
-3. Run `bscr/sql/bscr-output.sql` against the **same snapshot** and peril
-   selection. It matches policy type to each peril rather than using the
-   extract's single `@policy_type`. It independently calculates the source
-   exposure; it does not read the raw CSV. Leave `@bscr_entity = NULL` for
-   all entities, including unmapped
-   NULL entities, or set a quoted value such as `'HIC'`, `'33'`, `'HIG'`,
-   `'HSA'`, or `'3624'`.
-4. Confirm `@qs_pct_retention` and `@srp_pct_retention` (`0.5` and `0.3333`).
-   They are retained fractions, not percentages to divide by 100. A literal
-   `_QS` marker in `userid1` takes precedence over `_SRP`; other rows retain
-   the full amount.
-   Set `@gbp_to_usd` to the approved USD-per-GBP rate (default `1.35`).
-   The final SELECT converts gross/net amounts to full USD; counts and
-   grouping are unchanged. No division by 1,000,000 is applied in SQL.
-5. Export the aggregate result with these eight headers:
-   `cntrycode, bscr_entity, region, sum_pml, sum_net, count_policies, is_geocoded, peril_id`.
-   `peril_id` is explicit: `1` for earthquake (including `ALL`), `2` for wind.
-6. Preserve both SQL files, parameter values, exports, row counts, totals and
-   source-snapshot identity together. A successful export does not resolve the
-   policy-grain or workbook defects below.
+The six uploaded CSVs remain under `bscr/sql/edm-parquet/`; the folder name is
+historical and the files are CSV, not Parquet:
 
-## Understand and reconcile the output
+| File | Verified rows |
+|---|---:|
+| `01_accgrp.csv` | 354,830 |
+| `02_policy.csv` | 662,306 |
+| `03_loc.csv` | 1,008,151 |
+| `04_loccvg.csv` | 1,053,391 |
+| `source_metadata.csv` | 1 metadata record |
+| `06_schema.csv` | Source column definitions |
 
-The aggregate grain is country, derived entity, region and geocode status.
-There is no final `peril_id` column: the following region routing is part of
-the output contract.
+Do not deduplicate, apply FX, edit or resave the raw files in Excel.
+Preserve empty strings separately from SQL NULL representations. The supplied
+state field has 30 literal `NULL` markers in French/German locations; raw lexical
+values were preserved for inspection. Source metadata identifies
+`HISCO_UKEU_01JAN26_010126_ROLLUP_ByLOB_GC_EDM` and its case-insensitive collation.
+All four source counts match the metadata.
 
-| Region | Peril | Current population |
-|---|---|---|
-| `is_nahu` | 2 — wind | US (all states), CB, TC, BH, JM, VI, MX |
-| `is_eu` | 2 — wind | GB, UK, FR, DE, BE, NL, LX, AT, DK, SE, PL, CZ |
-| `is_jp` | 2 — wind | JP |
-| `is_na_eq` | 1 — earthquake | CA; US California, Washington, Oregon, South Carolina, Tennessee, or NULL state |
-| `is_jp_eq` | 1 — earthquake | JP |
-| `is_us_all` | 1 — earthquake | US |
-| `is_non_us` | 1 — earthquake | Anything other than US, including NULL country |
-| `ALL` | 1 — earthquake | All source countries |
+Historical input workbooks and saved output CSVs are retained unchanged.
+`workings_old_report.xlsx` is identical to `Workings_with_geocodingFW.xlsx`.
+The earlier workings divide by 1,000; FW divides by 1,000,000. The later
+`Workings_with_geocodingFW - Including blanks USD.xlsx` applies 1.35 FX and
+restores US exposure to NA hurricane. Its 49 raw groups match the historical
+CSV without excluding US. Do not reproduce the earlier workbook's omission
+as a production rule.
 
-These are observed mappings, not approved geography definitions. `LX` is
-literal; SQL does not substitute `LU`. Empty US state is not the same as NULL.
-Region rows overlap; **never total all regions together**. `ALL` is earthquake
-only, not an all-peril or wind control. Wind outside its three regional
-populations has no aggregate output row.
+The five April templates retain the historical total counts. All 46 populated
+regional gross/net exposure limits match the later USD workings within USD 1.
+Their modelability allocations, premiums, EP placeholders, cached errors and
+external links remain separate controls; dates do not prove submission.
 
-- Compare `ALL.sum_pml` to raw `pml * @gbp_to_usd` filtered to `peril_id = 1`,
-  using the same entity scope and geocode/country grain. For an entity-filtered
-  aggregate, first apply the same entity classification to the raw result.
-- Entity classification searches `userid1` case-insensitively in this order:
-  HIG, HSA, 33, 3624, HIC. It is substring matching, not an exact portfolio map;
-  unmatched values produce NULL. Investigate those rows before filtering.
-- Check each wind region separately against the corresponding peril-2 raw
-  population after applying the same FX rate. Reconcile gross-to-net movement
-  by QS/SRP category.
-- `count_policies` is `COUNT_BIG(*)` over contributing source aggregates.
-  It is neither distinct policies nor distinct contracts and is not an
-  approved Schedule X(f) count.
-- The extract retains source currency; the aggregate converts assumed GBP
-  amounts to full USD only in its final SELECT. Confirm all source amounts
-  are GBP independently: currency is absent from both final exports, and a
-  single rate cannot normalize mixed-currency data. Neither query divides
-  by 1,000,000.
-- The extract still retains the account-only policy rejoin, policy-side
-  geocode and cap grouping without `policyid`. The aggregate query corrects
-  those joins, matches policies by peril, and applies caps separately per
-  policy within each exposure grouping. Raw-to-aggregate differences can
-  therefore remain after FX conversion. Obtain independent source and
-  before/after-join controls rather than treating the legacy extract as a
-  correctness baseline. See BSCR-002 in the
-  [discrepancy register](../calculation-discrepancies.md#bscr-schedule-x).
+The original Marimo application remains at `bscr/BSCR_UKEU_original.py` and
+`bscr/old-process/BSCR_UKEU.py`. The separate `bscr/BSCR_UKEU.py` is an older
+seven-column CSV workflow, not a consumer of these eight-column query outputs.
 
-## Load a controlled workbook copy
+## Running the retained queries
 
-Use `bscr/workbooks/BSCR_Workings.xlsx` as workings, not as a completed return.
-Its current input is a worksheet range, **not an Excel table**, and there is
-no configured Power Query connection.
+1. Select the approved EDM database/snapshot in your SQL client.
+2. Run `bscr-extract-legacy.sql` for the historical comparison and
+   `bscr-output.sql` for the corrected result. Both are read-only.
+3. Use the same frozen source and the same FX, retention and entity settings.
+4. Save results separately; retain all eight headers and preserve NULLs.
+5. Compare `ALL` for earthquake totals and compare regional populations
+   separately. Never sum across overlapping regional rows.
 
-1. Resolve the affected workbook blockers below before a production refresh.
-2. Set `Settings!B7` to the entity being prepared. Its validation list contains
-   33, HIC, HIG, HSA and 3624. If filtering the SQL, use the same entity value.
-3. Load only the **first seven columns of the aggregate**, not the raw export,
-   into `BSCR Source Data!A:G` with headers in row 1. Preserve the eighth
-   column (`peril_id`) in the CSV for audit; do not paste it into H, which
-   contains workbook formulas. Clear stale controlled input
-   rows. First adapt the currency formulas as described below; preserve
-   unrelated worksheet content.
-4. `BSCR Output!C:E` uses `SUMIFS` over source D:F, matching entity, region and
-   geocode from output A, B and F, and summing across countries. Those grouping
-   keys are a fixed list: ensure every incoming key has an approved output row.
-   Recalculation does not create missing groups.
-5. Before loading the USD aggregate, remove or bypass the workbook's GBP-to-USD
-   multiplication on every gross/net path. Retain division by 1,000,000 only
-   where USD millions are required. The checked-in workbook has not been
-   updated for this SQL currency change: loading into its existing formulas
-   would convert twice. Changing `Settings!B3` alone is insufficient because
-   some formulas hard-code `1.35`. Reconcile formula coverage before refresh.
-6. Reconcile source → output → pivots → schedule reference cells. Retain a
-   reviewed copy and the final-template transfer record.
+Current routing: wind (2) feeds `is_nahu`, `is_eu`, `is_jp`; earthquake (1)
+feeds `ALL`, `is_na_eq`, `is_jp_eq`, `is_us_all`, `is_non_us`. The legacy
+script uses earthquake for every retained regional label and does not add
+`is_jp_eq` or `is_non_us`. Uppercase US states do not match the legacy Python
+lookup's title-case names; current SQL includes the selected US states through
+case-insensitive matching. Canada is included in both.
 
-### Current workbook blockers
+## Loading the current reporting workbook
 
-- **Japanese perils reversed:** `Schedule X(c)!B7:C7` (earthquake) selects
-  `is_jp`, which SQL now defines as wind. `B8:C8` (typhoon) selects `is_jp_eq`,
-  which SQL defines as earthquake. Resolve the formula/key mapping before use.
-- **Pivot coverage:** the output pivot cache still uses `BSCR Output!A1:J50`,
-  excluding rows 51–70 for `is_jp_eq` and `is_non_us`. The source pivot uses
-  `BSCR Source Data!A1:K1048576`; neither is a dynamically sized Excel table.
-- **FX is not fully settings-driven:** source H:I rows 3–453 and output G
-  rows 3–50 use shared formulas containing hard-coded `1.35`. Changing B3
-  alone does not update those conversions. Resolve and reconcile all affected
-  gross/net paths before applying another rate.
-- **Cached data is not a current SQL run:** source rows contain the older six
-  region labels, without `is_jp_eq` or `is_non_us`. Workbook instructions and
-  audit notes also retain older Python/Power Query wording. Forced
-  recalculation on open does not load new data or repair these inconsistencies.
+`bscr/workbooks/BSCR_Workings.xlsx` is the operational workbook, not the concise
+reconciliation report. Preserve its approved formulas and controls:
 
-See BSCR-001 and BSCR-007 through BSCR-011 in the
-[discrepancy register](../calculation-discrepancies.md#bscr-schedule-x).
+1. Back it up before loading. Load only the first seven aggregate columns into
+   `BSCR Source Data!A:G`; retain `peril_id` in the CSV, not worksheet H.
+2. Clear stale input rows and verify complete entity/region/geocode coverage.
+   `BSCR Output!A2:F70` has a fixed list of keys; new keys are not added by recalculation.
+3. Bypass workbook FX on every gross/net path before loading USD query output.
+   Some formulas hard-code 1.35, so changing `Settings!B3` alone is insufficient.
+   Retain division by 1,000,000 only where USD millions are required.
+4. Reconcile cached/formula outputs after Excel refresh. Do not infer modelled,
+   modellable, detailed or data-deficient classifications solely from geocoding.
+5. Review the controlled final template, external links, premium source,
+   modelability decisions and EP results before transfer or sign-off.
 
-## Completion boundary
-
-Schedule X(a) and X(b) require independent approved EP-curve and premium
-sources. X(c) contains combined regional exposure references, not all required
-premium/limit splits. X(f) needs distinct-contract and modelability sources.
-Approve the final template and field-by-field mapping before submission;
-files in `bscr/old-process/Workings/` are historical presentation evidence,
-not SQL inputs or proof of current template approval.
-
-`bscr/BSCR_UKEU.py` is retained for historical comparison only. Its strict
-seven-column source contract rejects the current eight-column extract, and
-its aggregation does not implement the current dual-peril routing or the new
-region keys. Do not remove `peril_id` and feed combined-peril rows into it.
-
-`bscr/BSCR_UKEU_original.py` preserves the original Marimo application,
-also archived at `bscr/old-process/BSCR_UKEU.py`. It connects directly to
-SQL Server and runs its embedded earthquake-only query before the Python
-aggregation. Its original policy/geocoding calculation defects are preserved,
-so its totals are not a correctness baseline for the corrected SQL output.
+See the [discrepancy register](../calculation-discrepancies.md#bscr-schedule-x)
+for remaining controls, especially policy-cap allocation grain and distinct
+contract counting.
