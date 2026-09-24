@@ -3,14 +3,15 @@
 -- The peril header table below selects earthquake (1) and wind (2) together.
 -- Region-to-peril routing is explicit in region_peril_lookup.
 -- Set @bscr_entity to 33, HIC, HIG, HSA or 3624 for one entity.
--- Currency: pml/net stay in the database source currency and source units.
--- This SQL does not apply FX conversion or divide by 1,000,000.
--- The current workbook assumes GBP -> USD at Settings!B3 = 1.35, then /1m.
+-- Source amounts must all be GBP. @gbp_to_usd is USD per GBP.
+-- Apply FX once in the final SELECT; output sum_pml/sum_net are full USD.
+-- No /1,000,000 scaling. Disable workbook FX before loading converted output.
 -- Retention parameters are fractions: 0.5 = 50%; 0.3333 = 33.33%.
 -- Output headers: cntrycode, bscr_entity, region, sum_pml, sum_net,
 -- count_policies, is_geocoded. Region names identify the peril routing.
 -- Policy types match peril IDs. Limits apply per policy and exposure grouping.
 -- The uncorrected bscr-extract.sql can differ from these corrected totals.
+DECLARE @gbp_to_usd decimal(18, 8) = 1.35;
 DECLARE @qs_pct_retention decimal(9, 6) = 0.5;
 DECLARE @srp_pct_retention decimal(9, 6) = 0.3333;
 DECLARE @bscr_entity varchar(20) = NULL;
@@ -349,8 +350,8 @@ SELECT
     cntrycode,
     bscr_entity,
     region,
-    sum_pml,
-    sum_net,
+    sum_pml * @gbp_to_usd AS sum_pml,
+    sum_net * @gbp_to_usd AS sum_net,
     count_policies,
     is_geocoded
 FROM final_output

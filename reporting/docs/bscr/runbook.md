@@ -16,12 +16,17 @@ Time: 1d
 3. Run `bscr/sql/bscr-output.sql` against the same database snapshot and
    parameters. Leave `@bscr_entity = NULL` for all entities, or set it to
    `33`, `HIC`, `HIG`, `HSA` or `3624` for one entity.
+   Set `@gbp_to_usd` to the approved USD-per-GBP rate (default `1.35`).
+   The final SELECT converts `sum_pml` and `sum_net` to full USD; counts
+   and grouping remain unchanged.
 4. Export the aggregate result with headers:
    `cntrycode, bscr_entity, region, sum_pml, sum_net, count_policies, is_geocoded`.
 5. The SQL routes `is_nahu`, `is_eu` and `is_jp` to peril 2, and
    `is_na_eq`, `is_jp_eq`, `is_us_all`, `is_non_us` and `ALL` to peril 1.
-6. Reconcile the aggregate `ALL` rows to the earthquake raw/source totals,
-   then check entity, geography, geocode, retention and regional splits.
+6. Reconcile the aggregate `ALL` rows to the earthquake raw/source totals
+   after applying the same FX rate, then check entity, geography, geocode,
+   retention and regional splits. The extract still contains the legacy
+   policy/geocoding defects, so FX alone does not resolve those differences.
 7. Save both SQL files, parameters, raw output, aggregate output and database
    snapshot together.
 
@@ -56,12 +61,15 @@ rule; `count_policies` is only a contributing-row count.
 
 ## Run controls
 
-- Keep SQL `pml`/`net` in the database source currency and source units; SQL
-  does not apply FX or divide by 1,000,000.
-- The current workbook assumes source GBP, output USD, and
-  `Settings!B3 = 1.35` GBP-to-USD. It applies that rate once, then divides by
-  1,000,000 for USD millions. Do not paste workbook USD columns back into the
-  SQL source columns.
+- The extract retains source currency. The aggregate assumes all source
+  amounts are GBP and applies `@gbp_to_usd` only in the final SELECT.
+  Confirm the source-currency population independently; a single rate
+  cannot normalize mixed-currency data. SQL output is full USD, not millions.
+- Before loading the USD aggregate, remove or bypass workbook FX on every
+  gross/net path to avoid converting twice. Retain division by 1,000,000
+  only where USD millions are required. The workbook is unchanged and
+  includes hard-coded `1.35` factors as well as `Settings!B3`; changing
+  that setting alone is insufficient. Reconcile all affected formulas.
 - Do not add overlapping regional rows together.
 - Set `@qs_pct_retention` and `@srp_pct_retention` at the top of
   `bscr-output.sql`; they are fractions (`0.5` and `0.3333` by default).
