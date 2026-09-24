@@ -15,7 +15,7 @@ what to run, what to check and where the process stops.
 
 | Process | Read online / in your editor | Open in Word |
 |---|---|---|
-| BSCR Schedule X | [BSCR guide](docs/bscr/runbook.md) | [BSCR](docs/generated/BSCR-Jan-2026.docx) |
+| BSCR Schedule X | [Runbook](docs/bscr/runbook.md) · [Reconciliation method](docs/bscr/reconciliation.md) | [BSCR runbook](docs/generated/BSCR-Jan-2026.docx) |
 | PRA aggregates | [PRA guide](docs/pra/runbook.md) | [PRA](docs/generated/PRA-Jan-2026.docx) |
 | Lloyd's supplementary | [Lloyd's guide](docs/lloyds/runbook.md) | [Lloyd's](docs/generated/Lloyds-Supplementary-Jan-2026.docx) |
 | Global Exposures | [Global Exposures guide](docs/global-exposures/runbook.md) | [Global Exposures](docs/generated/Global-Exposures-Jan-2026.docx) |
@@ -23,7 +23,8 @@ what to run, what to check and where the process stops.
 
 **BSCR files:** [current SQL](bscr/sql/bscr-output.sql) ·
 [population workbook](bscr/workbooks/BSCR_Auto_Population.xlsx) ·
-[reconciliation workbook](bscr/reconcile/results/BSCR_Reconciliation.xlsx).
+[reconciliation workbook](bscr/reconcile/results/BSCR_Reconciliation.xlsx) ·
+[reconciliation method and findings](docs/bscr/reconciliation.md).
 To refresh the population workbook: clear its old SQL input rows (keep the
 headers/table), then paste the new results. Blue schedule fields remain manual.
 

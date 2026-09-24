@@ -49,8 +49,9 @@ Excel recalculation is claimed by this review.
 **Current population route:** `bscr-output.sql` → `BSCR_Auto_Population.xlsx`.
 Findings about the older `BSCR_Workings.xlsx` or historical templates remain
 reference evidence; they do not describe the generated population workbook.
-The two-step refresh and separate reconciliation evidence are in the
-[BSCR guide](bscr/runbook.md).
+The current operating steps are in the [BSCR runbook](bscr/runbook.md);
+the historical comparisons and controlled old-to-new bridge are in
+[BSCR reconciliation](bscr/reconciliation.md).
 The legacy workings workbook was subsequently restored to revision `d6aedfe`
 (21 September 2026). Cell-range findings below describe the previously audited
 versions, not a new audit of that restored file; native Excel opening must still
