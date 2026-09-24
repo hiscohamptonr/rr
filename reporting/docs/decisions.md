@@ -45,29 +45,36 @@ acceptance targets for later periods.
 
 **Scope:** policy grain, classifications, and diagnostics. **Required role:**
 BSCR methodology owner and EDM/query owner. **Evidence:** BSCR-002, BSCR-003,
-BSCR-004, BSCR-006 and PRA-005/PRA-006 in the discrepancy register.
+BSCR-004, BSCR-006, BSCR-011 and PRA-005/PRA-006 in the discrepancy register.
 
 Approve or correct the policy/account/geography/geocode joins and cap grain;
 supply executable before/after-join counts and distinct-policy/account controls.
 Resolve all-US NAHU behaviour, competing geography lists, entity/null rules and
 retention precision. Define distinct-contract identity and X(f) classification;
 `count_policies` is not a distinct-contract source.
+Approve the current two-peril selection with its single policy-type filter,
+region-to-peril routing and earthquake-only `ALL` control. The retained Python
+comparison is not an equivalent producer for this SQL contract.
 
 **Close with:** versioned query/mappings and diagnostic results on an approved
 snapshot, plus the separately identified contract-count producer.
 
 ## BSCR-02
 
-**Scope:** `Sheet1` to static `output!A:F`. **Required role:** BSCR workbook owner.
-**Evidence:** BSCR-001 and BSCR-007.
+**Scope:** SQL aggregate → `BSCR Source Data` → `BSCR Output` → pivots and
+schedule references. **Required role:** BSCR workbook owner.
+**Evidence:** BSCR-001, BSCR-007, BSCR-008, BSCR-009 and BSCR-010.
 
-Supply the exact bridge grouping key, aggregation and treatment of country,
-entity, region and geocoding; clearing of removed groups; destination range;
-formula fill and pivot-source maintenance. Reconcile the rebuilt bridge to
-`Sheet1` before `piv` is refreshed. A refresh alone does not rebuild static cells.
+The current bridge uses `SUMIFS`, not the historical static `output!A:F`.
+Approve loading the seven-column aggregate into source A:G while preserving
+H:K. Define complete entity/region/geocode key coverage, stale-row clearing,
+formula fill and pivot-source maintenance; no Power Query connection or input
+Excel table is configured. Resolve the pivot range ending at row 50, Japanese
+peril-key reversal, and shared formulas that still hard-code the FX rate.
 
-**Close with:** the approved executable or manual bridge procedure and a
-reconciled worked example. Keep the procedure with the BSCR runbook.
+**Close with:** an approved loading/refresh procedure and controlled workbook
+whose source, output, currency conversions, pivots and schedule references
+reconcile on a worked example. Keep the procedure with the BSCR runbook.
 
 ## BSCR-03
 

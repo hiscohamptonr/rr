@@ -3,10 +3,11 @@
 [Start here](../../README.md) · [Human guide](aggregation.md) ·
 [Shared controls](../operating-controls.md)
 
-This document describes the current canonical query, `dataiku/Dataiku-Aggs.sql`,
-for LLM interpretation, review, and controlled execution. It is a provisional
-policy-terms/peril implementation. It is not an approved final PRA, BSCR, or
-Lloyd's calculation.
+This document describes the checked-in canonical query,
+`dataiku/Dataiku-Aggs.sql`, for LLM interpretation, review, and controlled
+execution. It is a provisional policy-terms/peril implementation. It is not
+an approved final PRA, BSCR, or Lloyd's calculation, and this repository
+contains no successful execution artifact or source-period approval.
 
 ## Canonical query and physical inputs
 
@@ -185,23 +186,28 @@ country code. `BSCREntity` is assigned by modelled LOB substring precedence:
 
 ## Final output grain and measures
 
-The final `GROUP BY` is:
+The final `GROUP BY` in `Dataiku-Aggs.sql` contains:
 
 ```text
 OEDID, DatasetLabel, UseCase, AggregationLevel, AggregationValue,
-AggregationSortOrder, AggregationCountry, AggregationState, AggregationRegion,
-AggregationPostcode, ReportingEntity, ReportingLOB, PerilCode, CountryCode,
-IsGeocoded, SourceCurrency, RateToGBP, DeductibleBasis, IsFloodRe, FACFlag,
-GeographyMappingBasis
+SortOrder, AggregationCountry, AggregationState, AggregationRegion,
+AggregationPostcode, ReportingEntity, ReportingLOB, PerilCode,
+ReportingCountryCode, IsGeocoded, SourceCurrency, RateToGBP,
+DeductibleBasis, IsFloodRe, FACFlag, parameters.GeographyMappingBasis
 ```
 
-The query emits `SourceRowCount`, `DistinctAccountCount`,
-`DistinctLocationCount`, `TIV_SOURCE`, `GROSS_SOURCE`, `NET_SOURCE`,
-`TIV_GBP`, `GROSS_GBP`, `NET_GBP`, `InvalidTIVRowCount`,
+`ReportingEntity` and `ReportingLOB` are both grouped and projected.
+`SortOrder` is exported as `AggregationSortOrder`; `ReportingCountryCode` is
+exported as `CountryCode`. These dimensions describe the query's output
+contract, not evidence of a successful approved production run.
+
+The aggregated measures are `SourceRowCount`,
+`DistinctAccountCount`, `DistinctLocationCount`, `TIV_SOURCE`, `GROSS_SOURCE`,
+`NET_SOURCE`, `TIV_GBP`, `GROSS_GBP`, `NET_GBP`, `InvalidTIVRowCount`,
 `InvalidParticipationRowCount`, `MissingParticipationRowCount`,
 `AmbiguousLOBRowCount`, `UnmappedLOBRowCount`, and `InvalidFXRowCount`.
-Counts are post-enrichment and post-level-expansion aggregates, not necessarily
-source-population counts.
+Counts are post-enrichment and post-level-expansion aggregates, not
+necessarily source-population counts.
 
 ## Review and evidence requirements
 

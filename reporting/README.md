@@ -1,10 +1,11 @@
 # Regulatory returns
 
 PRA uses **SQL → CSV → Excel**; follow its short runbook.
-BSCR uses **SQL → CSV → offline Python calculation**, with file paths set at
-the top of the script; the calculation PC needs no database connection.
-Global Exposures also uses **SQL → CSV → offline Python**, with four input files
-and local spatial calculations; it does not require a SQL spatial rewrite.
+BSCR uses **SQL-only extraction and aggregation → CSV → Excel**. The retained
+Python script is historical comparison material, not the current BSCR route.
+The BSCR guide records unresolved SQL controls and workbook handoff defects.
+Global Exposures uses **SQL → CSV → offline Python**, with four input files
+and local spatial calculations.
 Python dependencies come from each project's `pyproject.toml` and `uv.lock`;
 the runbooks use `uv run --isolated --locked` without a local `.venv`.
 ## Start with your guide
@@ -39,11 +40,13 @@ Open `.docx` files in Word. For Markdown, open this folder in VS Code, select
 `README.md` and press **⌘⇧V** for a formatted preview.
 
 Markdown is the maintained source. Each Word file contains only its process's short runbook—no appended checklist or source-identity section.
-To regenerate them from the repository root, documentation maintainers need Python and Pandoc; calculation operators do not need Pandoc:
+To regenerate them, run the following from the `reporting/` directory with
+Python and the project's locked dependencies:
 
 ```bash
-python3 tools/build_docx.py
+uv run --isolated --locked python tools/build_docx.py
 ```
 
-Commands in the guides run from the repository root. SQL assets and workbooks
-remain in `bscr/`, `pra/`, `lloyds/`, `globalexposures/` and `dataiku/`.
+Unless a guide explicitly changes directories, its paths are relative to
+`reporting/`, not the repository root. SQL assets and workbooks remain in
+`bscr/`, `pra/`, `lloyds/`, `globalexposures/` and `dataiku/`.

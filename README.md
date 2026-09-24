@@ -1,19 +1,20 @@
 # Intro
 This project describes three main categories of work relating to the UKEU Retail rollup.
 - The rollup itself
-- The data validaiton process
+- The data validation process
 - Regulatory reporting
 
 ## Rollup
 The documentation for the rollup is hosted on Azure and can also be viewed via the Dataiku project.
-See the readme file in the ./rollup folder for this.
+See the [rollup README](rollup/readme.md).
 
 ## Validation
-Similar to rollup the documentation is hosted on Azure and viewable on dataiku.
-See the ./validaiton folder readme file.
+Similarly, validation documentation is hosted on Azure and viewable in Dataiku.
+See the [validation README](validation/readme.md).
 
 ## Reporting
-The documentation is hosted in ./reporting/docs
+Start with the [reporting guides](reporting/README.md), particularly the
+[BSCR SQL-only workflow](reporting/docs/bscr/runbook.md).
 
 ## Key information
 

@@ -12,12 +12,15 @@ workbooks. This is an evidence register, not a proposed logic fix. A result is
 not approved for production until its required owner decision is recorded in a
 run pack.
 
-**Method:** the referenced Python/SQL and OOXML workbook formulas, pivot caches,
-named ranges, source ranges, and cached values were inspected. These findings
-and Python line numbers describe the January baseline in repository history,
-not the later file layout: SQL now runs separately from offline CSV calculation,
-and `PRA_Aggs.xlsx` no longer contains the raw BSCR helper or SQL sheets.
-The underlying financial issues are not resolved by that workflow cleanup.
+**Method:** Python/SQL and OOXML workbook formulas, pivot caches, named ranges,
+source ranges and cached values were inspected. BSCR entries below distinguish
+the current SQL-only workflow and workbook from historical evidence. The other
+January-baseline line references are historical unless explicitly labelled
+current; use the current process runbooks for paths and execution instructions.
+PRA no longer contains the raw BSCR helper/SQL sheets; Global Exposures now
+calculates from offline CSVs. These workflow changes do not establish approval
+or resolve the remaining financial issues. No live SQL Server execution or
+Excel recalculation is claimed by this review.
 
 ## How to use this register
 
@@ -45,13 +48,17 @@ The underlying financial issues are not resolved by that workflow cleanup.
 
 | ID | Severity | Verified evidence | Effect | Required owner decision |
 |---|---|---|---|---|
-| BSCR-001 | High | Workings `output!A2:F50` are static; `piv` sources `output!A1:J50`. `Sheet1!D384:E384` is `121,288,000,000` while `output!C16:D16` is `121,287,644,939.62`; cached pivot is about USD 0.479m stale after conversion. | Refreshing pivots does not load current `Sheet1`; mapped limits can be stale. | Approve authoritative data and an exact rebuild/clear/reconcile procedure for `output!A:F`. |
-| BSCR-002 | High | `BSCR_UKEU.py:120-153` forms policy × account/geography/geocode rows, rejoins on `accgrpid`, uses policy-side geocode, and groups without `policyid`. | Exposure/geocode can be cross-multiplied; caps are not demonstrably once per contract. | Approve policy/geography/geocode grain and cardinality reconciliation, or a corrected query. |
-| BSCR-003 | High | `is_nahu()` at `BSCR_UKEU.py:345-372` nests its state list under `state is None`; every non-null US state returns true. | All US exposure is currently NA hurricane rather than only listed states. | Approve all-US behaviour or authoritative state mapping. |
-| BSCR-004 | High | `count_policies` is `pl.len()` (`:490-496`, `:534-540`); no policy ID is exported. Schedule X(f) requests contract counts, e.g. `E8`, `H8`, `K8`. | It is a contributing-row count, not a distinct contract count. | Define contract identifier/counting and provide a controlled source for X(f). |
-| BSCR-005 | High | HIC X(b) has 39 `#REF!` formulas (`I33:I48`, `I51:I55`, `I58:I59`, `I62:I67`, `I70:I77`, `F67:G67`); X(f)`!D3` has cached `#VALUE!`; X(b) imports from a 2017 workbook and schedules link to 2024 material. | Final template contains broken/uncontrolled calculations and links. | Select current template; repair/replace or explicitly scope out every affected field. |
-| BSCR-006 | Medium | The executable prints final diagnostics but not per-CTE counts or distinct policies/accounts (`BSCR_UKEU.py:278-315`), although the LLM gate needs them. | The policy-grain gate cannot be evidenced by the documented command. | Provide approved diagnostic SQL/instrumentation and acceptance checks. |
-| BSCR-007 | Medium | `Sheet1` has no Excel table; its local pivot uses fixed `A1:K1048576`. | A table-resize instruction would create an uncontrolled workbook change. | Retain the actual fixed-range contract or approve a controlled table redesign. |
+| BSCR-001 | High | Historical `output!A2:F50` was static and its cache differed from `Sheet1`. Current `BSCR_Workings.xlsx` instead has `BSCR Output!C2:E70` formulas using `SUMIFS` over `BSCR Source Data!D:F`, keyed by output A/B/F. The 69 entity/region/geocode keys remain a fixed list. | The static-bridge defect is superseded, but a new source group absent from that list is omitted from output and schedules; recalculation does not add keys. | Approve complete key coverage and a source-to-output reconciliation/load procedure. |
+| BSCR-002 | High | Current `bscr-extract.sql` CTEs `policies` and `policy_exposure` (`:73-119`) and `bscr-output.sql` (`:93-139`) retain policy-side geocode, rejoin only on `accgrpid`, and group caps without `policyid`. With both perils selected, geocode values from either peril can enter the policy set. | Exposure/geocode can be cross-multiplied; caps are not demonstrably once per contract. Matching raw and aggregate totals can share the same upstream defect. | Approve policy/geography/geocode/peril grain, cap semantics and independent cardinality reconciliation, or a corrected query. |
+| BSCR-003 | High | Current SQL `nahu_country_lookup` and `classified_exposure.is_nahu` include every US state; there is no NAHU state predicate. This preserves the historical Python all-US behaviour. | NA hurricane population is broader than competing state-restricted workbook mappings. | Approve all-US behaviour or an authoritative state mapping. |
+| BSCR-004 | High | Current SQL `regional_wide` and `all_exposure` use `COUNT_BIG(*)`; neither final export contains `policyid`. Workings X(f) sums those counts. | It is a contributing-source-row count, not a distinct contract count. | Define contract identity/counting and provide a controlled source for X(f). |
+| BSCR-005 | High | Historical HIC template inspection found 39 X(b) `#REF!` formulas, X(f)!D3 cached `#VALUE!`, and 2017/2024 external workbook links. This is final-template baseline evidence, not a claim that the compact schedule tabs in current `BSCR_Workings.xlsx` contain those errors. | Historical template presence does not establish a usable current final return. | Select and review the controlled reporting-period template; repair/replace or explicitly scope out affected fields. |
+| BSCR-006 | Medium | Both current BSCR SQL files return their final result only; they do not emit per-CTE cardinality checks or distinct-policy diagnostics. | The policy-grain gate cannot be evidenced by running the two exports alone. | Provide approved diagnostic SQL and independent acceptance checks. |
+| BSCR-007 | Medium | Current `BSCR Source Data` has no Excel table; its source pivot uses fixed `A1:K1048576`. The workbook contains no configured Power Query connection. Earlier `Sheet1`/input-table instructions are obsolete. | Refresh does not import SQL output, and table-resize instructions describe a table that does not exist. | Approve the actual A:G range-loading contract or a controlled table/query redesign. |
+| BSCR-008 | High | Current SQL routes `is_jp` to wind (2) and `is_jp_eq` to earthquake (1). Workings `Schedule X(c)!B7:C7`, labelled Japanese earthquake, selects `is_jp`; typhoon `B8:C8` selects `is_jp_eq`. | Loading current SQL output swaps the two Japanese peril references. | Align the schedule formulas and labels to the approved SQL peril mapping before transfer. |
+| BSCR-009 | High | Current output pivot cache still references `BSCR Output!A1:J50`; output rows 51–60 contain `is_jp_eq` and 61–70 contain `is_non_us`. | A pivot refresh excludes both added regions. | Approve complete pivot source coverage and reconcile it to output and schedule references. |
+| BSCR-010 | High | `BSCR Source Data!H3:I453` shared-formula groups contain hard-coded `1.35`; `BSCR Output!G3:G50` is also a shared formula using `1.35`. Other conversions reference `Settings!B3`. | Changing the setting alone creates inconsistent FX paths, including gross versus net. | Approve one FX basis and consistent formula coverage; reconcile source, gross/net and schedule amounts after recalculation. |
+| BSCR-011 | Medium | Current extract has eight columns including `peril_id`; retained `BSCR_UKEU.py` requires exactly seven source columns and has no dual-peril routing or `is_jp_eq`/`is_non_us` output. Current workbook source cache also lacks the two added region labels. | The SQL header's legacy-equivalence wording and old cached data do not establish current output parity or lineage. Removing `peril_id` before Python aggregation would mix perils. | Use the SQL-only contract, reconcile per peril and preserve current-run evidence; do not use the retained Python script as a drop-in producer. |
 
 ## PRA aggregates
 
