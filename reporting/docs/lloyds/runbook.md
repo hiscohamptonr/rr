@@ -1,7 +1,26 @@
-# Lloyd's — quick steps
+---
+Report: RDS
+Time: 3d
+---
+
+# Lloyd's — RDS and Supplementary
 
 Use working copies from `lloyds/workbooks/`; match the filename endings below.
 Clear old input rows first, paste **without headers from row 2**, and keep formulas and scale factors intact.
+
+
+## RDS Events
+The RDS events are selected from the ELTs using the `lloyds/rds/eventids_for_rds.xlsx` workbook (path relative to `reporting/`).
+
+This lists the events to be selected from both Verisk and Risklink.
+
+Select the eventids and copy the results to the RDS workbook ('2026 Lloyds RDS UKEU Retail.xlsx')
+
+Where possible the blending approach was used, e.g. EU WS is 100% weighted to risklink therefore the risklink loss was used.
+
+As of January 2026 only EUWS and UKFL were the only perils to be updated. Going forward you should have model results for international
+perils, therefore the blending will need to be done on the RDS losses too.
+
 
 ## South Africa
 
@@ -27,9 +46,3 @@ Clear old input rows first, paste **without headers from row 2**, and keep formu
 2. In the workbook ending `EU Cresta.xlsx`, paste A:R into `Core data EQ!A2` and `Core data FL!A2`, preserving S:U.
 3. Correct the mixed source/USD flood formulas before filling down or refreshing `11 LIC EU CRESTA`.
 
-## Finish
-
-1. Check currency, units, scales, dates, missing geography and formula errors; do not blindly refresh external links.
-2. Reconcile each report and agreed exclusions to its extract, then save the workbook and CSV together.
-
-**Still needed:** the final Lloyd's submission template and destination cells.
