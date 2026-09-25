@@ -11,7 +11,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from docx import Document as WordDocument
 from docx.enum.text import WD_BREAK
@@ -181,7 +181,7 @@ def _resolve_target(page: PreparedPage, raw_path: str) -> Path | None:
 
 
 def _generated_relative(path: Path) -> str:
-    return Path(os.path.relpath(path, OUTPUT)).as_posix()
+    return quote(Path(os.path.relpath(path, OUTPUT)).as_posix(), safe="/")
 
 
 def _rewrite_link(
